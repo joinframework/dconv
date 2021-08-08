@@ -9,32 +9,34 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: joinframework/join-ci:latest
 
     steps:
     - name: Fetch
       uses: actions/checkout@v2
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug -DDCONV_ENABLE_TESTS=ON
+      run: cmake -G "Unix Makefiles" -B /__w/dconv/dconv/build -DCMAKE_BUILD_TYPE=Debug -DDCONV_ENABLE_TESTS=ON -DDCONV_ENABLE_COVERAGE=ON
 
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --config Debug
-
-    - name: Install lcov
-      run: sudo apt install lcov -y
+      run: cmake --build /__w/dconv/dconv/build --config Debug
 
     - name: Test
-      working-directory: ${{github.workspace}}/build
-      run: ctest --output-on-failure -C Debug
+      run: ctest --test-dir /__w/dconv/dconv/build --output-on-failure -C Debug
 
     - name: Generate coverage report
       run: lcov --directory . --capture --output-file lcov.info
 
     - name: Cleanup coverage report
-      run: lcov --remove lcov.info '${{github.workspace}}/dconv/tests/*' '${{github.workspace}}/build/*' '/usr/include/*' -o lcov.info
+      run: lcov --remove lcov.info '/__w/dconv/dconv/build/*' '/__w/dconv/dconv/dconv/tests/*' '/usr/include/*' --output-file lcov.info
 
-    - name: Deploy coverage
+    - name: Deploy coverage report to coveralls
       uses: coverallsapp/github-action@v1.1.2
       with:
         github-token: ${{secrets.GITHUB_TOKEN}}
-        path-to-lcov: ./lcov.info
+        path-to-lcov: /__w/dconv/dconv/lcov.info
+
+    - name: Deploy coverage report to codecove
+      uses: codecov/codecov-action@v2
+      with:
+        file: /__w/dconv/dconv/lcov.info
