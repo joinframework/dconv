@@ -4,6 +4,7 @@
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/mrabine/dconv.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/mrabine/dconv/alerts/)
 [![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/mrabine/dconv.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/mrabine/dconv/context:cpp)
 [![Coverage Status](https://coveralls.io/repos/github/mrabine/dconv/badge.svg?branch=main)](https://coveralls.io/github/mrabine/dconv?branch=main)
+[![codecov](https://codecov.io/gh/mrabine/dconv/branch/main/graph/badge.svg)](https://codecov.io/gh/mrabine/dconv)
 [![Documentation](https://img.shields.io/badge/docs-doxygen-blue.svg)](https://mrabine.github.io/dconv/index.html)
 [![GitHub Releases](https://img.shields.io/github/release/mrabine/dconv.svg)](https://github.com/mrabine/dconv/releases/latest)
 [![GitHub License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mrabine/dconv/blob/main/LICENSE)
