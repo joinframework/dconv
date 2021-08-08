@@ -37,7 +37,7 @@ if(DCONV_ENABLE_TESTS)
     enable_testing()
 endif()
 
-if(JOIN_ENABLE_COVERAGE)
+if(DCONV_ENABLE_COVERAGE)
     if(NOT (CMAKE_BUILD_TYPE STREQUAL "Debug"))
         message(FATAL_ERROR "Code coverage results with a non-Debug build may be misleading")
     endif()
