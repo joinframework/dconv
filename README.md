@@ -13,7 +13,7 @@
 
 Double to string conversion is done using the **Grisu2** algorithm, described by **Florian Loitsch** in its publication [Printing Floating-Point Numbers Quickly and Accurately with Integers](https://florian.loitsch.com/publications).
 
-String to double conversion is done using a fast and simple (but not accurate!!!) approach and fallback to **strtod** if conversion can't be done the simplified way.
+String to double conversion is done using a fast and simple (but not accurate!) approach and fallback to **strtod** if conversion can't be done the simplified way.
 
 The code is far from being perfect so any help to improve speed, accuratie, code quality etc... is welcome.
 
