@@ -17,3 +17,5 @@ extraction:
       - cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DDCONV_ENABLE_TESTS=ON ..
       - cmake --build . --config Debug
       - cd -
+    queries:
+      - include: "*"
