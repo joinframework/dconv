@@ -31,11 +31,24 @@
 // C.
 #include <cmath>
 
+std::string asciiHextoBinary (const std::string & input)
+{
+    std::stringstream stream(input);
+    std::string output, a;
+    while (stream >> a[0] >> a[1]) {
+        output += (char)std::stol(a, nullptr, 16);
+    }
+    return output;
+}
+
 /**
  * @brief pow10 test.
  */
 TEST (atod, pow10)
 {
+    std::string foo = asciiHextoBinary("FFFFFFFFF");
+    std::cout << foo << std::endl;
+
     EXPECT_EQ (dconv::details::pow10 (0), 1e0);
     EXPECT_EQ (dconv::details::pow10 (22), 1e22);
     EXPECT_EQ (dconv::details::pow10 (124), 1e124);
