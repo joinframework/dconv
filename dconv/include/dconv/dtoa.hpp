@@ -28,11 +28,6 @@
 // dconv.
 #include <dconv/diyfp.hpp>
 
-// C++.
-#include <iostream>
-#include <sstream>
-#include <string>
-
 // C.
 #include <cstring>
 #include <cmath>
@@ -576,16 +571,6 @@ namespace dconv
         }
     }
 
-    std::string asciiHextoBinary (const std::string & input)
-    {
-        std::stringstream stream(input);
-        std::string output, a;
-        while (stream >> a[0] >> a[1]) {
-            output += (char)std::stol(a, nullptr, 16);
-        }
-        return output;
-    }
-
     /**
      * @brief double to string conversion.
      * @param buffer buffer to write the string representation to.
@@ -594,9 +579,6 @@ namespace dconv
      */
     inline char* dtoa (char* buffer, double value)
     {
-        std::string foo = asciiHextoBinary("FFFFFFFFF");
-        std::cout << foo << std::endl;
-
         if (std::signbit (value))
         {
             *buffer++ = '-';
