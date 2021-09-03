@@ -1,5 +1,3 @@
-queries:
-  - include: "*"
 extraction:
   cpp:
     prepare:
