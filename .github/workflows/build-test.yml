@@ -8,12 +8,14 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    container: joinframework/join-ci:latest
+    runs-on: ubuntu-22.04
+    container:
+      image: joinframework/join-ci:latest
+      options: --privileged
 
     steps:
     - name: Fetch
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3.0.2
 
     - name: Configure CMake
       run: cmake -G "Unix Makefiles" -B /__w/dconv/dconv/build -DCMAKE_BUILD_TYPE=Debug -DDCONV_ENABLE_TESTS=ON -DDCONV_ENABLE_COVERAGE=ON
@@ -37,14 +39,15 @@ jobs:
         path-to-lcov: /__w/dconv/dconv/lcov.info
 
     - name: Deploy coverage report to codecove
-      uses: codecov/codecov-action@v3.0.0
+      uses: codecov/codecov-action@v3.1.0
       with:
+        fail_ci_if_error: true
         token: ${{secrets.CODECOV_TOKEN}}
         file: /__w/dconv/dconv/lcov.info
+        flags: unittests
 
     - name: Deploy coverage report to codacy
       uses: codacy/codacy-coverage-reporter-action@v1.3.0
       with:
         project-token: ${{secrets.CODACY_PROJECT_TOKEN}}
         coverage-reports: /__w/dconv/dconv/lcov.info
-
