@@ -32,20 +32,6 @@
 #include <cmath>
 
 /**
- * @brief pow10 test.
- */
-TEST (atod, pow10)
-{
-    EXPECT_EQ (dconv::details::pow10 (0), 1e0);
-    EXPECT_EQ (dconv::details::pow10 (22), 1e22);
-    EXPECT_EQ (dconv::details::pow10 (124), 1e124);
-    EXPECT_EQ (dconv::details::pow10 (218), 1e218);
-    EXPECT_EQ (dconv::details::pow10 (308), 1e308);
-    EXPECT_THROW (dconv::details::pow10 (309), std::invalid_argument);
-    EXPECT_THROW (dconv::details::pow10 (412), std::invalid_argument);
-}
-
-/**
  * @brief isSign test.
  */
 TEST (atod, isSign)
@@ -88,14 +74,26 @@ TEST (atod, atod)
 
     EXPECT_EQ (dconv::atod ("1ee+10", value), nullptr);
 
+    ASSERT_NE (dconv::atod ("inf", value), nullptr);
+    EXPECT_TRUE (!std::signbit (value) && std::isinf (value));
+
     ASSERT_NE (dconv::atod ("Inf", value), nullptr);
     EXPECT_TRUE (!std::signbit (value) && std::isinf (value));
+
+    ASSERT_NE (dconv::atod ("-inf", value), nullptr);
+    EXPECT_TRUE (std::signbit (value) && std::isinf (value));
 
     ASSERT_NE (dconv::atod ("-Inf", value), nullptr);
     EXPECT_TRUE (std::signbit (value) && std::isinf (value));
 
+    ASSERT_NE (dconv::atod ("nan", value), nullptr);
+    EXPECT_TRUE (!std::signbit (value) && std::isnan (value));
+
     ASSERT_NE (dconv::atod ("NaN", value), nullptr);
     EXPECT_TRUE (!std::signbit (value) && std::isnan (value));
+
+    ASSERT_NE (dconv::atod ("-nan", value), nullptr);
+    EXPECT_TRUE (std::signbit (value) && std::isnan (value));
 
     ASSERT_NE (dconv::atod ("-NaN", value), nullptr);
     EXPECT_TRUE (std::signbit (value) && std::isnan (value));
