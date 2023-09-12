@@ -1,13 +1,12 @@
 # dconv
 
-[![Build Status](https://github.com/joinframework/dconv/workflows/build-test/badge.svg)](https://github.com/joinframework/dconv/actions?query=workflow%3Abuild-test)
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/joinframework/dconv.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/joinframework/dconv/alerts/)
-[![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/joinframework/dconv.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/joinframework/dconv/context:cpp)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/44b789b2a04c4f1c9720c6b3020dd769)](https://www.codacy.com/gh/joinframework/dconv/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=joinframework/dconv&amp;utm_campaign=Badge_Grade)
-[![Codacy Badge](https://app.codacy.com/project/badge/Coverage/44b789b2a04c4f1c9720c6b3020dd769)](https://www.codacy.com/gh/joinframework/dconv/dashboard?utm_source=github.com&utm_medium=referral&utm_content=joinframework/dconv&utm_campaign=Badge_Coverage)
+[![Coverage Status](https://github.com/joinframework/dconv/workflows/coverage/badge.svg)](https://github.com/joinframework/dconv/actions?query=workflow%3Acoverage)
+[![Security Status](https://github.com/joinframework/dconv/workflows/security/badge.svg)](https://github.com/joinframework/dconv/security/code-scanning)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/44b789b2a04c4f1c9720c6b3020dd769)](https://app.codacy.com/gh/joinframework/dconv/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Coverage/44b789b2a04c4f1c9720c6b3020dd769)](https://app.codacy.com/gh/joinframework/dconv/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage)
 [![Coverage Status](https://coveralls.io/repos/github/joinframework/dconv/badge.svg?branch=main)](https://coveralls.io/github/joinframework/dconv?branch=main)
 [![codecov](https://codecov.io/gh/joinframework/dconv/branch/main/graph/badge.svg)](https://codecov.io/gh/joinframework/dconv)
-[![Documentation](https://img.shields.io/badge/docs-doxygen-blue.svg)](https://joinframework.github.io/dconv/index.html)
+[![Doxygen](https://img.shields.io/badge/docs-doxygen-blue.svg)](https://joinframework.github.io/dconv/index.html)
 [![GitHub Releases](https://img.shields.io/github/release/joinframework/dconv.svg)](https://github.com/joinframework/dconv/releases/latest)
 [![GitHub License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/joinframework/dconv/blob/main/LICENSE)
 
