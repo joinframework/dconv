@@ -49,7 +49,7 @@ namespace dconv
             return end;
         }
 
-        inline bool strtodFast (uint64_t significand, int64_t exponent, double& value)
+        inline bool strtodFast (bool negative, uint64_t i, int64_t exponent, double& value)
         {
             static const double pow10[] = {
                 1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10,
@@ -57,7 +57,7 @@ namespace dconv
                 1e22
             };
 
-            value = static_cast <double> (significand);
+            value = static_cast <double> (i);
 
             if ((exponent > 22) && (exponent < (22 + 16)))
             {
@@ -74,6 +74,10 @@ namespace dconv
                 else
                 {
                     value *= pow10[exponent];
+                }
+                if (negative)
+                {
+                    value = -value;
                 }
                 return true;
             }
@@ -105,7 +109,7 @@ namespace dconv
      */
     inline const char * atod (View& view, double& value)
     {
-        uint64_t significand = 0, digits = 0;
+        uint64_t i = 0, digits = 0;
 
         auto beg = view.data ();
         bool neg = view.getIf ('-');
@@ -119,12 +123,12 @@ namespace dconv
         }
         else if (details::isDigit (view.peek ()))
         {
-            significand = view.get () - '0';
+            i = view.get () - '0';
             ++digits;
 
             while (details::isDigit (view.peek ()))
             {
-                significand = (10 * significand) + (view.get () - '0');
+                i = (10 * i) + (view.get () - '0');
                 ++digits;
             }
         }
@@ -159,14 +163,14 @@ namespace dconv
                 return nullptr;
             }
 
-            significand = (10 * significand) + (view.get () - '0');
-            if (significand) ++digits;
+            i = (10 * i) + (view.get () - '0');
+            if (i) ++digits;
             --exponent;
 
             while (details::isDigit (view.peek ()))
             {
-                significand = (10 * significand) + (view.get () - '0');
-                if (significand) ++digits;
+                i = (10 * i) + (view.get () - '0');
+                if (i) ++digits;
                 --exponent;
             }
         }
@@ -203,13 +207,8 @@ namespace dconv
             return details::strtodSlow (beg, value);
         }
 
-        if (details::strtodFast (significand, exponent, value))
+        if (details::strtodFast (neg, i, exponent, value))
         {
-            if (neg)
-            {
-                value = -value;
-            }
-
             return view.data ();
         }
 
