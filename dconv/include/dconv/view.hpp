@@ -136,13 +136,29 @@ namespace dconv
         }
 
         /**
-         * @brief extracts expected character.
+         * @brief extracts expected character (case sensitive).
          * @param expected expected character.
          * @return true if extracted, false otherwise.
          */
         constexpr bool getIf (char expected) noexcept
         {
             if (_len && (*_ptr == expected))
+            {
+                ++_ptr;
+                --_len;
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * @brief extracts expected character (case insensitive).
+         * @param expected expected character.
+         * @return true if extracted, false otherwise.
+         */
+        constexpr bool getIfNoCase (char expected) noexcept
+        {
+            if (_len && (((*_ptr ^ expected) == 0) || ((*_ptr ^ expected) == 32)))
             {
                 ++_ptr;
                 --_len;
