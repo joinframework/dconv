@@ -91,122 +91,111 @@ namespace dconv
             return (c == '+') || (c == '-');
         }
 
-        inline bool isDot (char c)
+        inline const char * atod (View& view, double& value)
         {
-            return (c == '.');
-        }
-    }
+            auto beg = view.data ();
 
-    /**
-     * @brief string to double conversion.
-     * @param view string view.
-     * @param value converted value.
-     * @return end position on success, nullptr on failure.
-     */
-    inline const char * atod (View& view, double& value)
-    {
-        uint64_t i = 0, digits = 0;
+            uint64_t i = 0, digits = 0;
+            bool neg = view.getIf ('-');
 
-        auto beg = view.data ();
-        bool neg = view.getIf ('-');
-
-        if (view.getIf ('0'))
-        {
-            if (unlikely (details::isDigit (view.peek ())))
+            if (view.getIf ('0'))
             {
-                return nullptr;
+                if (unlikely (isDigit (view.peek ())))
+                {
+                    return nullptr;
+                }
             }
-        }
-        else if (details::isDigit (view.peek ()))
-        {
-            i = view.get () - '0';
-            ++digits;
-
-            while (details::isDigit (view.peek ()))
+            else if (isDigit (view.peek ()))
             {
-                i = (10 * i) + (view.get () - '0');
+                i = view.get () - '0';
                 ++digits;
+
+                while (isDigit (view.peek ()))
+                {
+                    i = (10 * i) + (view.get () - '0');
+                    ++digits;
+                }
             }
-        }
-        else if (view.getIfNoCase ('i') && view.getIfNoCase ('n') && view.getIfNoCase ('f'))
-        {
-            if (view.getIfNoCase ('i') && !(view.getIfNoCase ('n') && view.getIfNoCase ('i') && view.getIfNoCase ('t') && view.getIfNoCase ('y')))
+            else if (view.getIfNoCase ('i') && view.getIfNoCase ('n') && view.getIfNoCase ('f'))
+            {
+                if (view.getIfNoCase ('i') && !(view.getIfNoCase ('n') && view.getIfNoCase ('i') && view.getIfNoCase ('t') && view.getIfNoCase ('y')))
+                {
+                    return nullptr;
+                }
+
+                value = neg ? -std::numeric_limits <double>::infinity () : std::numeric_limits <double>::infinity ();
+
+                return view.data ();
+            }
+            else if (view.getIfNoCase ('n') && view.getIfNoCase ('a') && view.getIfNoCase ('n'))
+            {
+                value = neg ? -std::numeric_limits <double>::quiet_NaN () : std::numeric_limits <double>::quiet_NaN ();
+
+                return view.data ();
+            }
+            else
             {
                 return nullptr;
             }
 
-            value = neg ? -std::numeric_limits <double>::infinity () : std::numeric_limits <double>::infinity ();
+            int64_t exponent = 0;
 
-            return view.data ();
-        }
-        else if (view.getIfNoCase ('n') && view.getIfNoCase ('a') && view.getIfNoCase ('n'))
-        {
-            value = neg ? -std::numeric_limits <double>::quiet_NaN () : std::numeric_limits <double>::quiet_NaN ();
-
-            return view.data ();
-        }
-        else
-        {
-            return nullptr;
-        }
-
-        int64_t exponent = 0;
-
-        if (view.getIf ('.'))
-        {
-            if (unlikely (!details::isDigit (view.peek ())))
+            if (view.getIf ('.'))
             {
-                return nullptr;
-            }
+                if (unlikely (!isDigit (view.peek ())))
+                {
+                    return nullptr;
+                }
 
-            i = (10 * i) + (view.get () - '0');
-            if (i) ++digits;
-            --exponent;
-
-            while (details::isDigit (view.peek ()))
-            {
                 i = (10 * i) + (view.get () - '0');
                 if (i) ++digits;
                 --exponent;
-            }
-        }
 
-        if (view.getIf ('e') || view.getIf ('E'))
-        {
-            bool negexp = false;
-
-            if (details::isSign (view.peek ()))
-            {
-                negexp = (view.get () == '-');
-            }
-
-            if (unlikely (!details::isDigit (view.peek ())))
-            {
-                return nullptr;
-            }
-
-            int64_t exp = view.get () - '0';
-
-            while (details::isDigit (view.peek ()))
-            {
-                if (exp < 0x100000000)
+                while (isDigit (view.peek ()))
                 {
-                    exp = (10 * exp) + (view.get () - '0');
+                    i = (10 * i) + (view.get () - '0');
+                    if (i) ++digits;
+                    --exponent;
                 }
             }
 
-            exponent += (negexp ? -exp : exp);
-        }
-
-        if (likely ((exponent >= -325) && (exponent <= 308) && (digits < 19)))
-        {
-            if (details::strtodFast (neg, i, exponent, value))
+            if (view.getIf ('e') || view.getIf ('E'))
             {
-                return view.data ();
-            }
-        }
+                bool negexp = false;
 
-        return details::strtodSlow (beg, value);
+                if (isSign (view.peek ()))
+                {
+                    negexp = (view.get () == '-');
+                }
+
+                if (unlikely (!isDigit (view.peek ())))
+                {
+                    return nullptr;
+                }
+
+                int64_t exp = view.get () - '0';
+
+                while (isDigit (view.peek ()))
+                {
+                    if (exp < 0x100000000)
+                    {
+                        exp = (10 * exp) + (view.get () - '0');
+                    }
+                }
+
+                exponent += (negexp ? -exp : exp);
+            }
+
+            if (likely ((exponent >= -325) && (exponent <= 308) && (digits < 19)))
+            {
+                if (strtodFast (neg, i, exponent, value))
+                {
+                    return view.data ();
+                }
+            }
+
+            return strtodSlow (beg, value);
+        }
     }
 
     /**
@@ -218,7 +207,7 @@ namespace dconv
     inline const char* atod (const char* str, double& value)
     {
         View view (str);
-        return atod (view, value);
+        return details::atod (view, value);
     }
 
     /**
@@ -231,7 +220,7 @@ namespace dconv
     inline const char* atod (const char* str, size_t length, double& value)
     {
         View view (str, length);
-        return atod (view, value);
+        return details::atod (view, value);
     }
 
     /**
@@ -244,7 +233,7 @@ namespace dconv
     inline const char* atod (const char* first, const char* last, double& value)
     {
         View view (first, last);
-        return atod (view, value);
+        return details::atod (view, value);
     }
 }
 
