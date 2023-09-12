@@ -198,14 +198,12 @@ namespace dconv
             exponent += (negexp ? -exp : exp);
         }
 
-        if (unlikely ((exponent < -325) || (exponent > 308) || (digits >= 19)))
+        if (likely ((exponent >= -325) && (exponent <= 308) && (digits < 19)))
         {
-            return details::strtodSlow (beg, value);
-        }
-
-        if (details::strtodFast (neg, i, exponent, value))
-        {
-            return view.data ();
+            if (details::strtodFast (neg, i, exponent, value))
+            {
+                return view.data ();
+            }
         }
 
         return details::strtodSlow (beg, value);
