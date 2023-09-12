@@ -107,13 +107,13 @@ namespace dconv
             }
             else if (isDigit (view.peek ()))
             {
-                ++digits;
                 i = view.get () - '0';
+                ++digits;
 
                 while (isDigit (view.peek ()))
                 {
-                    ++digits;
                     i = (10 * i) + (view.get () - '0');
+                    ++digits;
                 }
             }
             else if (view.getIfNoCase ('i') && view.getIfNoCase ('n') && view.getIfNoCase ('f'))
@@ -147,14 +147,14 @@ namespace dconv
                     return nullptr;
                 }
 
-                if (i) ++digits;
                 i = (10 * i) + (view.get () - '0');
+                if (i || digits) ++digits;
                 --exponent;
 
                 while (isDigit (view.peek ()))
                 {
-                    if (i) ++digits;
                     i = (10 * i) + (view.get () - '0');
+                    if (i || digits) ++digits;
                     --exponent;
                 }
             }
