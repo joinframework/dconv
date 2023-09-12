@@ -100,11 +100,6 @@ namespace dconv
             return (c == '+') || (c == '-');
         }
 
-        inline bool isExponent (char c)
-        {
-            return (c == 'e') || (c == 'E');
-        }
-
         inline bool isDot (char c)
         {
             return (c == '.');
