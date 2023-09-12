@@ -79,13 +79,7 @@ namespace dconv
                 return true;
             }
 
-            if (value == 0)
-            {
-                value = 0.0;
-                return true;
-            }
-
-            return false;
+            return (value == 0.0) ? true : false;
         }
 
         inline const char * strtodSlow (const char * beg, double& value)
