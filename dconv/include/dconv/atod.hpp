@@ -41,14 +41,13 @@ namespace dconv
 {
     namespace details
     {
-        struct fp
+        inline const char * strtodSlow (const char * beg, double& value)
         {
-            uint64_t significand = 0;
-            uint64_t digits = 0;
-            int64_t exponent = 0;
-            int64_t frac = 0;
-            bool negative = false;
-        };
+            char* end = nullptr;
+            static locale_t locale = newlocale (LC_ALL_MASK, "C", nullptr);
+            value = strtod_l (beg, &end, locale);
+            return end;
+        }
 
         inline bool strtodFast (uint64_t significand, int64_t exponent, double& value)
         {
@@ -82,14 +81,6 @@ namespace dconv
             return (value == 0.0) ? true : false;
         }
 
-        inline const char * strtodSlow (const char * beg, double& value)
-        {
-            char* end = nullptr;
-            static locale_t locale = newlocale (LC_ALL_MASK, "C", nullptr);
-            value = strtod_l (beg, &end, locale);
-            return end;
-        }
-
         inline bool isDigit (char c)
         {
             return (c >= '0') && (c <= '9');
@@ -114,43 +105,43 @@ namespace dconv
      */
     inline const char * atod (View& view, double& value)
     {
-        details::fp f;
+        uint64_t significand = 0, digits = 0;
 
         auto beg = view.data ();
-        f.negative = view.getIf ('-');
+        bool neg = view.getIf ('-');
 
-        if (unlikely (view.getIf ('0')))
+        if (view.getIf ('0'))
         {
             if (unlikely (details::isDigit (view.peek ())))
             {
                 return nullptr;
             }
         }
-        else if (likely (details::isDigit (view.peek ())))
+        else if (details::isDigit (view.peek ()))
         {
-            f.significand = (view.get () - '0');
-            ++f.digits;
+            significand = view.get () - '0';
+            ++digits;
 
-            while (likely (details::isDigit (view.peek ())))
+            while (details::isDigit (view.peek ()))
             {
-                f.significand = (f.significand * 10) + (view.get () - '0');
-                ++f.digits;
+                significand = (10 * significand) + (view.get () - '0');
+                ++digits;
             }
         }
-        else if (likely (view.getIfNoCase ('i') && view.getIfNoCase ('n') && view.getIfNoCase ('f')))
+        else if (view.getIfNoCase ('i') && view.getIfNoCase ('n') && view.getIfNoCase ('f'))
         {
-            if (unlikely (view.getIfNoCase ('i') && !(view.getIfNoCase ('n') && view.getIfNoCase ('i') && view.getIfNoCase ('t') && view.getIfNoCase ('y'))))
+            if (view.getIfNoCase ('i') && !(view.getIfNoCase ('n') && view.getIfNoCase ('i') && view.getIfNoCase ('t') && view.getIfNoCase ('y')))
             {
                 return nullptr;
             }
 
-            value = f.negative ? -std::numeric_limits <double>::infinity () : std::numeric_limits <double>::infinity ();
+            value = neg ? -std::numeric_limits <double>::infinity () : std::numeric_limits <double>::infinity ();
 
             return view.data ();
         }
-        else if (likely (view.getIfNoCase ('n') && view.getIfNoCase ('a') && view.getIfNoCase ('n')))
+        else if (view.getIfNoCase ('n') && view.getIfNoCase ('a') && view.getIfNoCase ('n'))
         {
-            value = f.negative ? -std::numeric_limits <double>::quiet_NaN () : std::numeric_limits <double>::quiet_NaN ();
+            value = neg ? -std::numeric_limits <double>::quiet_NaN () : std::numeric_limits <double>::quiet_NaN ();
 
             return view.data ();
         }
@@ -159,66 +150,62 @@ namespace dconv
             return nullptr;
         }
 
+        int64_t exponent = 0;
+
         if (view.getIf ('.'))
         {
-            while (likely (details::isDigit (view.peek ())))
+            if (unlikely (!details::isDigit (view.peek ())))
             {
-                if (f.significand || f.digits)
-                {
-                    ++f.digits;
-                }
-                --f.frac;
+                return nullptr;
+            }
 
-                f.significand = (f.significand * 10) + (view.get () - '0');
+            significand = (10 * significand) + (view.get () - '0');
+            if (significand) ++digits;
+            --exponent;
+
+            while (details::isDigit (view.peek ()))
+            {
+                significand = (10 * significand) + (view.get () - '0');
+                if (significand) ++digits;
+                --exponent;
             }
         }
 
         if (view.getIf ('e') || view.getIf ('E'))
         {
-            bool negExp = false;
+            bool negexp = false;
 
             if (details::isSign (view.peek ()))
             {
-                negExp = (view.get () == '-');
+                negexp = (view.get () == '-');
             }
-            
-            if (likely (details::isDigit (view.peek ())))
-            {
-                f.exponent = (view.get () - '0');
 
-                while (likely (details::isDigit (view.peek ())))
-                {
-                    int digit = view.peek () - '0';
-
-                    if (likely (f.exponent <= ((std::numeric_limits <int>::max () - digit) / 10)))
-                    {
-                        f.exponent = (f.exponent * 10) + digit;
-                    }
-
-                    view.get ();
-                }
-            }
-            else
+            if (unlikely (!details::isDigit (view.peek ())))
             {
                 return nullptr;
             }
 
-            if (negExp)
+            int64_t exp = view.get () - '0';
+
+            while (details::isDigit (view.peek ()))
             {
-                f.exponent = -f.exponent;
+                if (exp < 0x100000000)
+                {
+                    exp = (10 * exp) + (view.get () - '0');
+                }
             }
+
+            exponent += (negexp ? -exp : exp);
         }
 
-        f.exponent += f.frac;
-
-        if (unlikely ((f.exponent < -325) || (f.exponent > 308) || (f.digits > 19)))
+        if (unlikely ((exponent < -325) || (exponent > 308) || (digits >= 19)))
         {
             return details::strtodSlow (beg, value);
         }
 
-        if (details::strtodFast (f.significand, f.exponent, value))
+        if (details::strtodFast (significand, exponent, value))
         {
-            if (f.negative)
+            if (neg)
             {
                 value = -value;
             }
