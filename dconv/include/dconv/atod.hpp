@@ -57,16 +57,9 @@ namespace dconv
                 1e22
             };
 
-            value = static_cast <double> (i);
-
-            if ((exponent > 22) && (exponent < (22 + 16)))
+            if ((exponent >= -22) && (exponent <= 22) && (i <= 9007199254740991)) 
             {
-                value *= pow10[exponent - 22];
-                exponent = 22;
-            }
-
-            if ((exponent >= -22) && (exponent <= 22) && (value <= 9007199254740991.0))
-            {
+                value = static_cast <double> (i);
                 if (exponent < 0)
                 {
                     value /= pow10[-exponent];
@@ -75,14 +68,17 @@ namespace dconv
                 {
                     value *= pow10[exponent];
                 }
-                if (negative)
-                {
-                    value = -value;
-                }
+                value = negative ? -value : value;
                 return true;
             }
 
-            return (value == 0.0) ? true : false;
+            if (i == 0) 
+            {
+                value = negative ? -0.0 : 0.0;
+                return true;
+            }
+
+            return false;
         }
 
         inline bool isDigit (char c)
