@@ -32,7 +32,9 @@
 #include <limits>
 
 // C.
+#include <cstdint>
 #include <cstdlib>
+#include <cmath>
 
 #define likely(x)   __builtin_expect((x), 1)
 #define unlikely(x) __builtin_expect((x), 0)
@@ -49,7 +51,7 @@ namespace dconv
             return end;
         }
 
-        inline bool strtodFast (bool negative, uint64_t i, int64_t exponent, double& value)
+        inline bool strtodFast (bool negative, uint64_t mantissa, int64_t exponent, double& value)
         {
             static const double pow10[] = {
                 1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10,
@@ -57,9 +59,15 @@ namespace dconv
                 1e22
             };
 
-            if ((exponent >= -22) && (exponent <= 22) && (i <= 9007199254740991)) 
+            if (mantissa == 0) 
             {
-                value = static_cast <double> (i);
+                value = negative ? -0.0 : 0.0;
+                return true;
+            }
+
+            if (likely ((exponent >= -22) && (exponent <= 22) && (mantissa <= 9007199254740991)))
+            {
+                value = static_cast <double> (mantissa);
                 if (exponent < 0)
                 {
                     value /= pow10[-exponent];
@@ -69,12 +77,6 @@ namespace dconv
                     value *= pow10[exponent];
                 }
                 value = negative ? -value : value;
-                return true;
-            }
-
-            if (i == 0) 
-            {
-                value = negative ? -0.0 : 0.0;
                 return true;
             }
 
@@ -95,7 +97,7 @@ namespace dconv
         {
             auto beg = view.data ();
 
-            uint64_t i = 0, digits = 0;
+            uint64_t mantissa = 0, digits = 0;
             bool neg = view.getIf ('-');
 
             if (view.getIf ('0'))
@@ -107,12 +109,16 @@ namespace dconv
             }
             else if (isDigit (view.peek ()))
             {
-                i = view.get () - '0';
+                mantissa = view.get () - '0';
                 ++digits;
 
                 while (isDigit (view.peek ()))
                 {
-                    i = (10 * i) + (view.get () - '0');
+                    if (unlikely (mantissa > (std::numeric_limits <uint64_t>::max () / 10)))
+                    {
+                        return strtodSlow (beg, value);
+                    }
+                    mantissa = (10 * mantissa) + (view.get () - '0');
                     ++digits;
                 }
             }
@@ -147,14 +153,18 @@ namespace dconv
                     return nullptr;
                 }
 
-                i = (10 * i) + (view.get () - '0');
-                if (i || digits) ++digits;
+                mantissa = (10 * mantissa) + (view.get () - '0');
+                if (mantissa || digits) ++digits;
                 --exponent;
 
                 while (isDigit (view.peek ()))
                 {
-                    i = (10 * i) + (view.get () - '0');
-                    if (i || digits) ++digits;
+                    if (unlikely (mantissa > (std::numeric_limits <uint64_t>::max () / 10)))
+                    {
+                        return strtodSlow (beg, value);
+                    }
+                    mantissa = (10 * mantissa) + (view.get () - '0');
+                    if (mantissa || digits) ++digits;
                     --exponent;
                 }
             }
@@ -177,9 +187,13 @@ namespace dconv
 
                 while (isDigit (view.peek ()))
                 {
-                    if (exp < 0x100000000)
+                    if (likely (exp < 0x100000000))
                     {
                         exp = (10 * exp) + (view.get () - '0');
+                    }
+                    else
+                    {
+                        view.get ();
                     }
                 }
 
@@ -188,7 +202,7 @@ namespace dconv
 
             if (likely ((exponent >= -325) && (exponent <= 308) && (digits <= 19)))
             {
-                if (strtodFast (neg, i, exponent, value))
+                if (strtodFast (neg, mantissa, exponent, value))
                 {
                     return view.data ();
                 }

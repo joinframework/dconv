@@ -1,7 +1,7 @@
 # dconv
 
 [![Coverage Status](https://github.com/joinframework/dconv/workflows/coverage/badge.svg)](https://github.com/joinframework/dconv/actions?query=workflow%3Acoverage)
-[![Security Status](https://github.com/joinframework/dconv/workflows/security/badge.svg)](https://github.com/joinframework/dconv/security/code-scanning)
+[![Security Status](https://github.com/joinframework/dconv/actions/workflows/security.yml/badge.svg)](https://github.com/joinframework/dconv/security/code-scanning)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/44b789b2a04c4f1c9720c6b3020dd769)](https://app.codacy.com/gh/joinframework/dconv/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/44b789b2a04c4f1c9720c6b3020dd769)](https://app.codacy.com/gh/joinframework/dconv/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage)
 [![codecov](https://codecov.io/gh/joinframework/dconv/branch/main/graph/badge.svg)](https://codecov.io/gh/joinframework/dconv)
@@ -18,6 +18,13 @@ String to double conversion is done using a fast and simple (but not accurate!) 
 
 The code is far from being perfect so any help to improve speed, accuratie, code quality etc... is welcome.
 
+## Dependencies
+
+To install **dconv** dependencies do this:
+```bash
+sudo apt update && sudo apt install libgtest-dev libgmock-dev
+```
+
 ## Download
 
 To download the latest source do this:
@@ -27,21 +34,17 @@ git clone https://github.com/mrabine/dconv.git
 
 ## Configuration
 
-To configure dconv do this:
+To configure **dconv** do this:
 ```bash
-cd dconv
-mkdir build && cd build
-cmake ..
+cmake -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DDCONV_ENABLE_TESTS=ON -DDCONV_ENABLE_COVERAGE=ON
 ```
 
-## Installation
+## Build
 
-To install dconv do this:
+To build **dconv** do this:
 ```bash
-make && sudo make install
+cmake --build build --config Debug
 ```
-
-Note that building and installing the library is not required as it is a header only library.
 
 ## Usage
 
