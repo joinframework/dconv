@@ -1,0 +1,171 @@
+name: build
+
+on:
+  workflow_call:
+    inputs:
+      coverage:
+        type: boolean
+        default: false
+      scan:
+        type: boolean
+        default: false
+      doc:
+        type: boolean
+        default: false
+
+  workflow_dispatch:
+    inputs:
+      coverage:
+        type: boolean
+        default: false
+      scan:
+        type: boolean
+        default: false
+      doc:
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: joinframework/join-ci:latest
+
+    permissions:
+      contents: read
+      security-events: write
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Build Environment
+        if: ${{ inputs.scan || inputs.coverage }}
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Initialize codeql
+        if: ${{ inputs.scan }}
+        uses: github/codeql-action/init@v3
+
+      - name: Configure
+        if: ${{ inputs.scan || inputs.coverage }}
+        run: cmake -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DDCONV_ENABLE_COVERAGE=ON -DDCONV_ENABLE_TESTS=ON
+
+      - name: Build
+        if: ${{ inputs.scan || inputs.coverage }}
+        run: cmake --build build --config Debug
+
+      - name: Run codeql scan
+        if: ${{ inputs.scan }}
+        uses: github/codeql-action/analyze@v3
+
+      - name: Run tests
+        if: ${{ inputs.coverage }}
+        run: ctest --test-dir build --output-on-failure -C Debug
+
+      - name: Generate coverage report
+        if: ${{ inputs.coverage }}
+        run: |
+          lcov --directory build --capture --exclude "*/usr/include/*" --exclude '*/tests/*' --output-file lcov.info
+          genhtml lcov.info --prefix $GITHUB_WORKSPACE --output-directory coverage
+
+      - name: Upload coverage data to GitHub
+        if: ${{ inputs.coverage }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data
+          path: lcov.info
+
+      - name: Upload coverage report to GitHub
+        if: ${{ inputs.coverage }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+
+      - name: Run doxygen
+        if: ${{ inputs.doc }}
+        uses: mattnotmitt/doxygen-action@v1
+        with:
+          doxyfile-path: ./doxyfile
+          working-directory: .
+
+      - name: Upload documentation to GitHub
+        if: ${{ inputs.doc }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./doc/html
+
+  deploy-coverage:
+    if: ${{ inputs.coverage }}
+
+    runs-on: ubuntu-latest
+
+    container:
+      image: joinframework/join-ci:latest
+
+    permissions:
+      contents: read
+
+    needs: build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Download coverage data from GitHub
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-data
+          path: ./
+
+      - name: Deploy coverage report to coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          files: lcov.info
+
+      - name: Deploy coverage report to codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+          flags: unittests
+          files: lcov.info
+          fail_ci_if_error: true
+
+      - name: Deploy coverage report to codacy
+        uses: codacy/codacy-coverage-reporter-action@v1
+        with:
+          project-token: ${{secrets.CODACY_PROJECT_TOKEN}}
+          coverage-reports: lcov.info
+
+  deploy-pages:
+    if: ${{ inputs.doc }}
+
+    runs-on: ubuntu-latest
+
+    container:
+      image: joinframework/join-ci:latest
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    needs: build
+
+    steps:
+      - name: Deploy documentation to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
