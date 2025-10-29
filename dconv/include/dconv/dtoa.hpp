@@ -562,8 +562,8 @@ namespace dconv
             minus *= c_mk;
             plus  *= c_mk;
 
-            ++minus._mantissa;
-            --plus._mantissa;
+            --minus._mantissa;
+            ++plus._mantissa;
 
             k = -mk;
 
