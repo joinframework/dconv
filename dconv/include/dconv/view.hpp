@@ -26,11 +26,14 @@
 #define __DCONV_VIEW_HPP__
 
 // C++.
-#include <stdexcept>
+#include <string>
 
 // C.
 #include <cstring>
 #include <cstddef>
+
+#define likely(x)   __builtin_expect((x), 1)
+#define unlikely(x) __builtin_expect((x), 0)
 
 namespace dconv
 {
@@ -45,19 +48,9 @@ namespace dconv
          * @param s pointer to a character array.
          * @param count number of characters in the sequence.
          */
-        constexpr View (const char * s, size_t count)
-        : _ptr (s),
-          _len (count)
-        {
-        }
-
-        /**
-         * @brief default constructor.
-         * @param s pointer to a character array.
-         */
-        constexpr View (const char * s)
-        : _ptr (s),
-          _len (strlen (s))
+        explicit constexpr View (const char * s, size_t count)
+        : _pos (s)
+        , _end (s ? s + count : s)
         {
         }
 
@@ -67,8 +60,18 @@ namespace dconv
          * @param last pointer to the last character of the sequence.
          */
         constexpr View (const char * first, const char * last)
-        : _ptr (first),
-          _len (last - first)
+        : _pos (first)
+        , _end (last)
+        {
+        }
+
+        /**
+         * @brief default constructor.
+         * @param s pointer to a character array.
+         */
+        explicit View (const char * s)
+        : _pos (s)
+        , _end (s ? s + std::char_traits <char>::length (s) : s)
         {
         }
 
@@ -76,47 +79,42 @@ namespace dconv
          * @brief copy constructor.
          * @param other object to copy.
          */
-        constexpr View (const View& other) noexcept = default;
+        View (const View& other) noexcept = default;
 
         /**
          * @brief copy assignment.
          * @param other object to copy.
          * @return a reference of the current object.
          */
-        constexpr View& operator= (const View& other) noexcept = default;
+        View& operator= (const View& other) noexcept = default;
+
+        /**
+         * @brief move constructor.
+         * @param other object to move.
+         */
+        View (View&& other) noexcept = default;
+
+        /**
+         * @brief move assignment.
+         * @param other object to move.
+         * @return a reference of the current object.
+         */
+        View& operator=(View&& other) noexcept = default;
 
         /**
          * @brief destroy instance.
          */
-        virtual ~View () = default;
-
-        /**
-         * @brief returns a pointer to the first character of a view.
-         * @return a pointer to the first character of a view.
-         */
-        constexpr const char * data () const noexcept
-        {
-            return _ptr;
-        }
-
-        /**
-         * @brief returns the number of characters in the view.
-         * @return the number of characters in the view.
-         */
-        constexpr size_t size () const noexcept
-        {
-            return _len;
-        }
+        ~View () = default;
 
         /**
          * @brief get character without extracting it.
          * @return extracted character.
          */
-        constexpr int peek () const noexcept
+        inline int peek () const noexcept
         {
-            if (_len)
+            if (likely (_pos < _end))
             {
-                return *_ptr;
+                return static_cast <unsigned char> (*_pos);
             }
             return std::char_traits <char>::eof ();
         }
@@ -125,12 +123,11 @@ namespace dconv
          * @brief extracts character.
          * @return extracted character.
          */
-        constexpr int get () noexcept
+        inline int get () noexcept
         {
-            if (_len)
+            if (likely (_pos < _end))
             {
-                --_len;
-                return *_ptr++;
+                return static_cast <unsigned char> (*_pos++);
             }
             return std::char_traits <char>::eof ();
         }
@@ -140,39 +137,59 @@ namespace dconv
          * @param expected expected character.
          * @return true if extracted, false otherwise.
          */
-        constexpr bool getIf (char expected) noexcept
+        inline bool getIf (char expected) noexcept
         {
-            if (_len && (*_ptr == expected))
+            if (likely (_pos < _end) && (*_pos == expected))
             {
-                ++_ptr;
-                --_len;
+                ++_pos;
                 return true;
             }
             return false;
         }
 
         /**
-         * @brief extracts expected character (case insensitive).
+         * @brief extracts expected character (case insensitive, ASCII-only).
          * @param expected expected character.
          * @return true if extracted, false otherwise.
          */
-        constexpr bool getIfNoCase (char expected) noexcept
+        inline bool getIfNoCase (char expected) noexcept
         {
-            if (_len && (((*_ptr ^ expected) == 0) || ((*_ptr ^ expected) == 32)))
+            if (likely (_pos < _end))
             {
-                ++_ptr;
-                --_len;
-                return true;
+                const char c = *_pos;
+                if ((c | 32) == (expected | 32))
+                {
+                    ++_pos;
+                    return true;
+                }
             }
             return false;
         }
 
-    protected:
-        /// view start pointer.
-        const char * _ptr;
+        /**
+         * @brief returns a pointer to the first character of a view.
+         * @return a pointer to the first character of a view.
+         */
+        inline const char * data () const noexcept
+        {
+            return _pos;
+        }
 
-        /// view size.
-        size_t _len;
+        /**
+         * @brief returns the number of characters in the view.
+         * @return the number of characters in the view.
+         */
+        inline size_t size () const noexcept
+        {
+            return _end - _pos;
+        }
+
+    private:
+        /// current position.
+        const char * _pos = nullptr;
+
+        /// end position.
+        const char * _end = nullptr;
     };
 }
 
