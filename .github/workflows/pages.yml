@@ -1,25 +1,19 @@
-name: security
+name: pages
 
 on:
   push:
     branches: [ main ]
 
-  pull_request:
-    branches: [ main ]
-
-  schedule:
-    - cron: "0 11 * * 0"
-
-  workflow_dispatch:
+    workflow_dispatch:
 
 jobs:
-  scan:
+  generate:
     uses: ./.github/workflows/build.yml
 
     secrets: inherit
 
     with:
-      scan: true
+      doc: true
 
     permissions:
       contents: read
