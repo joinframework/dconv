@@ -48,7 +48,7 @@ namespace dconv
          * @param s pointer to a character array.
          * @param count number of characters in the sequence.
          */
-        constexpr View (const char * s, size_t count)
+        explicit constexpr View (const char * s, size_t count)
         : _pos (s)
         , _end (s ? s + count : s)
         {
@@ -69,7 +69,7 @@ namespace dconv
          * @brief default constructor.
          * @param s pointer to a character array.
          */
-        View (const char * s)
+        explicit View (const char * s)
         : _pos (s)
         , _end (s ? s + std::char_traits <char>::length (s) : s)
         {
@@ -164,21 +164,6 @@ namespace dconv
                 }
             }
             return false;
-        }
-
-        /**
-         * @brief read characters.
-         * @param buf output buffer.
-         * @param count number of characters to read.
-         * @return number of characters read.
-         */
-        inline size_t read (char* buf, size_t count) noexcept
-        {
-            const size_t available = _end - _pos;
-            const size_t nread = (count < available) ? count : available;
-            std::memcpy (buf, _pos, nread);
-            _pos += nread;
-            return nread;
         }
 
         /**
