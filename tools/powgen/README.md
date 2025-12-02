@@ -17,14 +17,12 @@ The tool outputs a fully self-contained C++ header containing:
 powgen [options]
 ```
 
-### Options
-
-  Option         Description
-  -------------- --------------------------------------
-  `-h`           Show help message
-  `-l <lower>`   Set lower exponent (default: `-325`)
-  `-u <upper>`   Set upper exponent (default: `308`)
-  `-v`           Show program version
+| Option          | Description                           |
+|-----------------|---------------------------------------|
+| `-h`            | Show help message                     |
+| `-l <lower>`    | Set lower exponent (default: `-325`)  |
+| `-u <upper>`    | Set upper exponent (default: `308`)   |
+| `-v`            | Show program version                  |
 
 ## Example
 
