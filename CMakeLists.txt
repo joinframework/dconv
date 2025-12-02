@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.28.3)
 project(dconv)
 
 set(CMAKE_CXX_STANDARD 14)
@@ -36,6 +36,7 @@ add_link_options(
 set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG -O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -D_FORTIFY_SOURCE=2 -O3")
 
+option(DCONV_ENABLE_TOOLS "Enable tools." OFF)
 option(DCONV_ENABLE_TESTS "Enable tests." OFF)
 option(DCONV_ENABLE_COVERAGE "Enable coverage." OFF)
 
@@ -56,3 +57,6 @@ if(DCONV_ENABLE_COVERAGE)
 endif()
 
 add_subdirectory(dconv)
+if(DCONV_ENABLE_TOOLS)
+    add_subdirectory(tools)
+endif()
