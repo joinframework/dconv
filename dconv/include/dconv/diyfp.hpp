@@ -98,7 +98,7 @@ namespace dconv
         /**
          * @brief destroy instance.
          */
-        virtual ~DiyFp () = default;
+        ~DiyFp () = default;
 
         /**
          * @brief normalize floating point.

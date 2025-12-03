@@ -26,7 +26,7 @@
 #define __DCONV_ATOD_HPP__
 
 // dconv.
-#include <dconv/power.hpp>
+#include <dconv/atodpow.hpp>
 #include <dconv/view.hpp>
 
 // C++.
@@ -128,7 +128,7 @@ namespace dconv
             }
 
             uint64_t high, middle, low;
-            const Power& power = powers[exponent + 325];
+            const Power& power = atodpow[exponent + 325];
             umul192 (power.hi, power.lo, mantissa, high, middle, low);
             int64_t exp = ((exponent * 217706) >> 16) + 1087;
 

@@ -1,21 +1,15 @@
 # powgen
 
 `powgen` is a command-line tool that generates **lookup
-tables** of high-precision powers of 5.\
-These tables are useful for fast **floating-point to decimal conversion
-algorithms**.
+tables** of high-precision powers of 5.
 
 The tool outputs a fully self-contained C++ header containing:
 
--   `MIN_EXPONENT`, `MAX_EXPONENT`
--   a `Power { uint64_t hi, lo }` structure
--   a `constexpr Power powers[]` lookup table
+- `MIN_EXPONENT`, `MAX_EXPONENT`
+- a `Power { uint64_t hi, lo }` structure
+- a `constexpr Power powers[]` lookup table
 
 ## Usage
-
-``` bash
-powgen [options]
-```
 
 | Option          | Description                           |
 |-----------------|---------------------------------------|
