@@ -152,9 +152,9 @@ public:
             if (bitPos >= 0)
             {
                 int block = bitPos / 32;
-                int bit = bitPos % 32;
                 if (block < static_cast <int> (data.size ()))
                 {
+                    int bit = bitPos % 32;
                     uint64_t bitValue = (data[block] >> bit) & 1;
                     hi |= (bitValue << (63 - i));
                 }
@@ -167,9 +167,9 @@ public:
             if (bitPos >= 0)
             {
                 int block = bitPos / 32;
-                int bit = bitPos % 32;
                 if (block < static_cast <int> (data.size ()))
                 {
+                    int bit = bitPos % 32;
                     uint64_t bitValue = (data[block] >> bit) & 1;
                     lo |= (bitValue << (63 - i));
                 }

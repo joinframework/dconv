@@ -47,7 +47,7 @@ namespace dconv
         {
             constexpr LocaleDelete () noexcept = default;
 
-            void operator () (locale_t loc)
+            void operator () (locale_t loc) noexcept
             {
                 freelocale (loc);
             }
@@ -100,9 +100,9 @@ namespace dconv
         #endif
         }
 
-        inline bool strtodFast (bool negative, uint64_t mantissa, int64_t exponent, double& value)
+        inline bool strtodFast (bool negative, uint64_t mantissa, int64_t exponent, double& value) noexcept
         {
-            static const double pow10[] = {
+            static constexpr double pow10[] = {
                 1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10,
                 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21,
                 1e22
@@ -181,12 +181,12 @@ namespace dconv
             return true;
         }
 
-        inline bool isDigit (char c) noexcept
+        constexpr inline bool isDigit (char c) noexcept
         {
             return static_cast <unsigned char> (c - '0') <= 9u;
         }
 
-        inline bool isSign (char c) noexcept
+        constexpr inline bool isSign (char c) noexcept
         {
             return (c == '+') || (c == '-');
         }
