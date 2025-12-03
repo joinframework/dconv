@@ -156,7 +156,7 @@ TEST (atod, atod)
     ASSERT_NE (dconv::atod ("1.234E+10", value), nullptr);
     EXPECT_EQ (value, 1.234E+10);
 
-    ASSERT_NE(dconv::atod("1e-200", value), nullptr);
+    ASSERT_NE (dconv::atod ("1e-200", value), nullptr);
     EXPECT_EQ (value, 1e-200);
 
     ASSERT_NE (dconv::atod ("1.234E-10", value), nullptr);

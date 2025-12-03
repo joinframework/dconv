@@ -1,6 +1,6 @@
 # powgen
 
-`powgen` is a command-line tool that generates **lookup
+**powgen** is a command-line tool that generates **lookup
 tables** of high-precision powers of 5.
 
 The tool outputs a fully self-contained C++ header containing:
