@@ -59,21 +59,10 @@ namespace dconv
         constexpr DiyFp& operator= (const DiyFp& other) noexcept = default;
 
         /**
-         * @brief create floating point using mantissa and exponent.
-         * @param mantissa mantissa.
-         * @param exponent exponent.
-         */
-        constexpr DiyFp (uint64_t mantissa, int exponent) noexcept
-        : _mantissa (mantissa),
-          _exponent (exponent)
-        {
-        }
-
-        /**
          * @brief create floating point using double.
          * @param value double value.
          */
-        constexpr DiyFp (double value) noexcept
+        explicit constexpr DiyFp (double value) noexcept
         {
             union
             {
@@ -96,9 +85,20 @@ namespace dconv
         }
 
         /**
+         * @brief create floating point using mantissa and exponent.
+         * @param mantissa mantissa.
+         * @param exponent exponent.
+         */
+        constexpr DiyFp (uint64_t mantissa, int exponent) noexcept
+        : _mantissa (mantissa),
+          _exponent (exponent)
+        {
+        }
+
+        /**
          * @brief destroy instance.
          */
-        virtual ~DiyFp () = default;
+        ~DiyFp () = default;
 
         /**
          * @brief normalize floating point.
@@ -106,10 +106,14 @@ namespace dconv
          */
         constexpr DiyFp& normalize () noexcept
         {
-            while ((_mantissa & _hiddenBit) == 0)
+            if (_mantissa != 0)
             {
-                _mantissa <<= 1;
-                --_exponent;
+                int shift = __builtin_clzll (_mantissa) - (64 - _mantissaSize - 1);
+                if (shift > 0)
+                {
+                    _mantissa <<= shift;
+                    _exponent -= shift;
+                }
             }
 
             _mantissa <<= (_diyMantissaSize - _mantissaSize - 1);
@@ -125,10 +129,14 @@ namespace dconv
          */
         constexpr DiyFp& normalizeBoundary () noexcept
         {
-            while ((_mantissa & (_hiddenBit << 1)) == 0)
+            if (_mantissa != 0)
             {
-                _mantissa <<= 1;
-                --_exponent;
+                int shift = __builtin_clzll (_mantissa) - (64 - _mantissaSize - 2);
+                if (shift > 0)
+                {
+                    _mantissa <<= shift;
+                    _exponent -= shift;
+                }
             }
 
             _mantissa <<= (_diyMantissaSize - _mantissaSize - 2);
@@ -182,6 +190,10 @@ namespace dconv
          */
         constexpr DiyFp& operator*= (const DiyFp& rhs) noexcept
         {
+        #if defined(__SIZEOF_INT128__)
+            __uint128_t product = static_cast <__uint128_t> (_mantissa) * static_cast <__uint128_t> (rhs._mantissa);
+            _mantissa = static_cast <uint64_t> ((product >> 64) + ((product >> 63) & 1));
+        #else
             uint64_t M32 = 0xFFFFFFFFU;
 
             uint64_t a = _mantissa >> 32;
@@ -197,6 +209,7 @@ namespace dconv
             uint64_t tmp = (bd >> 32) + (ad & M32) + (bc & M32) + (1U << 31);
 
             _mantissa = ac + (ad >> 32) + (bc >> 32) + (tmp >> 32);
+        #endif
             _exponent += rhs._exponent + 64;
 
             return *this;
@@ -233,7 +246,7 @@ namespace dconv
      * @param rhs floating point.
      * @return a floating point from lhs minus rhs.
      */
-    inline DiyFp operator- (const DiyFp& lhs, const DiyFp& rhs)
+    constexpr inline DiyFp operator- (const DiyFp& lhs, const DiyFp& rhs)
     {
         return DiyFp (lhs) -= rhs;
     }
@@ -244,7 +257,7 @@ namespace dconv
      * @param rhs floating point.
      * @return a floating point from lhs multiplied by rhs.
      */
-    inline DiyFp operator* (const DiyFp& lhs, const DiyFp& rhs)
+    constexpr inline DiyFp operator* (const DiyFp& lhs, const DiyFp& rhs)
     {
         return DiyFp (lhs) *= rhs;
     }

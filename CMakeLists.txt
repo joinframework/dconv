@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.28.3)
 project(dconv)
 
 set(CMAKE_CXX_STANDARD 14)
@@ -56,3 +56,4 @@ if(DCONV_ENABLE_COVERAGE)
 endif()
 
 add_subdirectory(dconv)
+add_subdirectory(tools)

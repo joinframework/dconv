@@ -78,6 +78,12 @@ TEST (atod, atod)
 
     EXPECT_EQ (dconv::atod ("1.e+10", value), nullptr);
 
+    ASSERT_NE (dconv::atod ("infinity", value), nullptr);
+    EXPECT_TRUE (!std::signbit (value) && std::isinf (value));
+
+    ASSERT_NE (dconv::atod ("-infinity", value), nullptr);
+    EXPECT_TRUE (std::signbit (value) && std::isinf (value));
+
     ASSERT_NE (dconv::atod ("inf", value), nullptr);
     EXPECT_TRUE (!std::signbit (value) && std::isinf (value));
 
@@ -155,6 +161,9 @@ TEST (atod, atod)
 
     ASSERT_NE (dconv::atod ("1.234E+10", value), nullptr);
     EXPECT_EQ (value, 1.234E+10);
+
+    ASSERT_NE (dconv::atod ("1e-200", value), nullptr);
+    EXPECT_EQ (value, 1e-200);
 
     ASSERT_NE (dconv::atod ("1.234E-10", value), nullptr);
     EXPECT_EQ (value, 1.234E-10);
