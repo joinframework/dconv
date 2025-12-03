@@ -1,5 +1,3 @@
-# powgen
-
 **powgen** is a command-line tool that generates **lookup
 tables** of high-precision powers of 5.
 
