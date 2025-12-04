@@ -31,6 +31,7 @@
 
 // C.
 #include <cstdint>
+#include <cstring>
 
 namespace dconv
 {
