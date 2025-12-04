@@ -63,11 +63,11 @@ namespace dconv
             return end;
         }
 
-        inline void umul192 (uint64_t hi, uint64_t lo, uint64_t mantissa, uint64_t& high, uint64_t& middle, uint64_t& low) noexcept
+        inline void umul192 (uint64_t hi, uint64_t lo, uint64_t significand, uint64_t& high, uint64_t& middle, uint64_t& low) noexcept
         {
         #if defined(__SIZEOF_INT128__)
-            __uint128_t h = static_cast <__uint128_t> (hi) * mantissa;
-            __uint128_t l = static_cast <__uint128_t> (lo) * mantissa;
+            __uint128_t h = static_cast <__uint128_t> (hi) * significand;
+            __uint128_t l = static_cast <__uint128_t> (lo) * significand;
             __uint128_t s = h + (l >> 64);
 
             high = static_cast <uint64_t> (s >> 64);
@@ -76,8 +76,8 @@ namespace dconv
         #else
             uint64_t hi_hi, hi_lo, lo_hi, lo_lo;
 
-            uint64_t m_lo = static_cast <uint32_t> (mantissa);
-            uint64_t m_hi = mantissa >> 32;
+            uint64_t m_lo = static_cast <uint32_t> (significand);
+            uint64_t m_hi = significand >> 32;
             uint64_t p0 = (hi & 0xFFFFFFFF) * m_lo;
             uint64_t p1 = (hi >> 32) * m_lo;
             uint64_t p2 = (hi & 0xFFFFFFFF) * m_hi;
@@ -100,7 +100,7 @@ namespace dconv
         #endif
         }
 
-        inline bool strtodFast (bool negative, uint64_t mantissa, int64_t exponent, double& value) noexcept
+        inline bool strtodFast (bool negative, uint64_t significand, int64_t exponent, double& value) noexcept
         {
             static constexpr double pow10[] = {
                 1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10,
@@ -108,17 +108,24 @@ namespace dconv
                 1e22
             };
 
-            if (unlikely (mantissa == 0))
+            value = static_cast <double> (significand);
+
+            if (unlikely((exponent > 22) && (exponent < (22 + 16))))
             {
-                value = negative ? -0.0 : 0.0;
+                value *= pow10[exponent - 22];
+                exponent = 22;
+            }
+
+            if (likely ((exponent >= -22) && (exponent <= 22) && (value <= 9007199254740991.0)))
+            {
+                value = (exponent < 0) ? (value / pow10[-exponent]) : (value * pow10[exponent]);
+                value = negative ? -value : value;
                 return true;
             }
 
-            if (likely ((exponent >= -22) && (exponent <= 22) && (mantissa <= 9007199254740991)))
+            if (unlikely (value == 0.0))
             {
-                value = static_cast <double> (mantissa);
-                value = (exponent < 0) ? (value / pow10[-exponent]) : (value * pow10[exponent]);
-                value = negative ? -value : value;
+                value = negative ? -0.0 : 0.0;
                 return true;
             }
 
@@ -129,7 +136,7 @@ namespace dconv
 
             uint64_t high, middle, low;
             const Power& power = atodpow[exponent + 325];
-            umul192 (power.hi, power.lo, mantissa, high, middle, low);
+            umul192 (power.hi, power.lo, significand, high, middle, low);
             int64_t exp = ((exponent * 217706) >> 16) + 1087;
 
             int lz;
@@ -181,12 +188,12 @@ namespace dconv
             return true;
         }
 
-        constexpr inline bool isDigit (char c) noexcept
+        inline constexpr bool isDigit (char c) noexcept
         {
             return static_cast <unsigned char> (c - '0') <= 9u;
         }
 
-        constexpr inline bool isSign (char c) noexcept
+        inline constexpr bool isSign (char c) noexcept
         {
             return (c == '+') || (c == '-');
         }
@@ -195,7 +202,7 @@ namespace dconv
         {
             auto beg = view.data ();
 
-            uint64_t mantissa = 0;
+            uint64_t significand = 0;
             uint64_t digits = 0;
             bool neg = view.getIf ('-');
 
@@ -208,17 +215,17 @@ namespace dconv
             }
             else if (likely (isDigit (view.peek ())))
             {
-                mantissa = view.get () - '0';
+                significand = view.get () - '0';
                 ++digits;
 
                 while (isDigit (view.peek ()))
                 {
-                    uint64_t next = (10 * mantissa) + (view.get () - '0');
-                    if (unlikely (next < mantissa)) // overflow
+                    uint64_t next = (10 * significand) + (view.get () - '0');
+                    if (unlikely (next < significand)) // overflow
                     {
                         return strtodSlow (beg, value);
                     }
-                    mantissa = next;
+                    significand = next;
                     ++digits;
                 }
             }
@@ -254,19 +261,19 @@ namespace dconv
                     return nullptr;
                 }
 
-                mantissa = (10 * mantissa) + (view.get () - '0');
-                if (mantissa || digits) ++digits;
+                significand = (10 * significand) + (view.get () - '0');
+                if (significand || digits) ++digits;
                 --exponent;
 
                 while (isDigit (view.peek ()))
                 {
-                    uint64_t next = (10 * mantissa) + (view.get () - '0');
-                    if (unlikely (next < mantissa)) // overflow
+                    uint64_t next = (10 * significand) + (view.get () - '0');
+                    if (unlikely (next < significand)) // overflow
                     {
                         return strtodSlow (beg, value);
                     }
-                    mantissa = next;
-                    if (mantissa || digits) ++digits;
+                    significand = next;
+                    if (significand || digits) ++digits;
                     --exponent;
                 }
             }
@@ -304,7 +311,7 @@ namespace dconv
 
             if (likely (digits <= 19))
             {
-                if (strtodFast (neg, mantissa, exponent, value))
+                if (strtodFast (neg, significand, exponent, value))
                 {
                     return view.data ();
                 }
