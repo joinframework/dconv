@@ -110,7 +110,6 @@ namespace dconv
             }
 
             int shift = __builtin_clzll (_mantissa);
-
             _mantissa <<= shift;
             _exponent  -= shift;
 
@@ -152,18 +151,12 @@ namespace dconv
             plus._exponent = _exponent - 1;
             plus.normalizeBoundary ();
 
-            if (_mantissa == _hiddenBit)
-            {
-                minus._mantissa = (_mantissa << 2) - 1;
-                minus._exponent = _exponent - 2;
-            }
-            else
-            {
-                minus._mantissa = (_mantissa << 1) - 1;
-                minus._exponent = _exponent - 1;
-            }
+            const bool special = __builtin_expect (_mantissa == _hiddenBit, 0);
+            minus._mantissa = (_mantissa << (special ? 2 : 1)) - 1;
+            minus._exponent = _exponent - (special ? 2 : 1);
 
-            minus._mantissa <<= minus._exponent - plus._exponent;
+            const int diff = minus._exponent - plus._exponent;
+            minus._mantissa <<= diff;
             minus._exponent = plus._exponent;
         }
 
