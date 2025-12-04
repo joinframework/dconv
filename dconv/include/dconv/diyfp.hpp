@@ -109,8 +109,7 @@ namespace dconv
                 return *this;
             }
 
-            int clz = __builtin_clzll (_mantissa);
-            int shift = clz + 41;
+            int shift = __builtin_clzll (_mantissa);
 
             _mantissa <<= shift;
             _exponent  -= shift;
