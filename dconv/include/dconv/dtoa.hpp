@@ -38,17 +38,13 @@ namespace dconv
     {
         inline char* writeExponent (char* buffer, int k)
         {
-            if (k < 0)
-            {
-                *buffer++ = '-';
-                k = -k;
-            }
-
+            *buffer = '-';
+            buffer += (k < 0);
+            k = (k < 0) ? -k : k;
             if (k >= 100)
             {
                 *buffer++ = '0' + k / 100;
                 k %= 100;
-
                 *buffer++ = '0' + k / 10;
                 k %= 10;
             }
@@ -57,9 +53,7 @@ namespace dconv
                 *buffer++ = '0' + k / 10;
                 k %= 10;
             }
-
             *buffer++ = '0' + k;
-
             return buffer;
         }
 
@@ -69,10 +63,7 @@ namespace dconv
 
             if ((length <= kk) && (kk <= 21))
             {
-                for (int i = length; i < kk; ++i)
-                {
-                    buffer[i] = '0';
-                }
+                memset (buffer + length, '0', kk - length);
                 buffer[kk] = '.';
                 buffer[kk + 1] = '0';
                 return &buffer[kk + 2];
@@ -89,10 +80,7 @@ namespace dconv
                 memmove (&buffer[offset], &buffer[0], length);
                 buffer[0] = '0';
                 buffer[1] = '.';
-                for (int i = 2; i < offset; ++i)
-                {
-                    buffer[i] = '0';
-                }
+                memset (&buffer[2], '0', offset - 2);
                 return &buffer[length + offset];
             }
             else if (length == 1)
@@ -195,7 +183,7 @@ namespace dconv
 
         inline int kComputation (int exp, int alpha)
         {
-            return ::ceil ((alpha - exp + 63) * 0.30102999566398114);
+            return static_cast <int> (::ceil ((alpha - exp + 63) * 0.30102999566398114));
         }
 
         inline void grisu2 (char* buffer, int& length, int& k, double value)
@@ -209,8 +197,8 @@ namespace dconv
             minus *= c_mk;
             plus  *= c_mk;
 
-            --minus._mantissa;
-            ++plus._mantissa;
+            ++minus._mantissa;
+            --plus._mantissa;
 
             k = -mk;
 
@@ -226,25 +214,23 @@ namespace dconv
      */
     inline char* dtoa (char* buffer, double value)
     {
-        if (std::signbit (value))
+        uint64_t bits;
+        memcpy (&bits, &value, sizeof(double));
+        bool is_negative = (bits >> 63) != 0;
+
+        *buffer = '-';
+        buffer += is_negative;
+        value = is_negative ? -value : value;
+
+        if (value == 0.0)
         {
-            *buffer++ = '-';
-            value = -value;
+            memcpy (buffer, "0.0", 3);
+            return buffer + 3;
         }
 
-        if (value == 0)
-        {
-            buffer[0] = '0';
-            buffer[1] = '.';
-            buffer[2] = '0';
-            return &buffer[3];
-        }
-        else
-        {
-            int length = 0, k = 0;
-            details::grisu2 (buffer, length, k, value);
-            return details::prettify (buffer, length, k);
-        }
+        int length = 0, k = 0;
+        details::grisu2 (buffer, length, k, value);
+        return details::prettify (buffer, length, k);
     }
 }
 

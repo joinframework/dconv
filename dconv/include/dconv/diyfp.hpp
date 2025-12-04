@@ -64,14 +64,11 @@ namespace dconv
          */
         explicit constexpr DiyFp (double value) noexcept
         {
-            union
-            {
-                double d;
-                uint64_t u;
-            } tmp = { .d = value };
+            uint64_t u64 = 0;
+            memcpy (&u64, &value, sizeof (double));
 
-            _mantissa = (tmp.u & _mantissaMask);
-            _exponent = (tmp.u & _exponentMask) >> _mantissaSize;
+            _mantissa = u64 & _mantissaMask;
+            _exponent = static_cast <int> ((u64 & _exponentMask) >> _mantissaSize);
 
             if (_exponent)
             {
@@ -104,20 +101,18 @@ namespace dconv
          * @brief normalize floating point.
          * @return a reference of the current object.
          */
-        constexpr DiyFp& normalize () noexcept
+        inline constexpr DiyFp& normalize () noexcept
         {
-            if (_mantissa != 0)
+            if (_mantissa == 0)
             {
-                int shift = __builtin_clzll (_mantissa) - (64 - _mantissaSize - 1);
-                if (shift > 0)
-                {
-                    _mantissa <<= shift;
-                    _exponent -= shift;
-                }
+                return *this;
             }
 
-            _mantissa <<= (_diyMantissaSize - _mantissaSize - 1);
-            _exponent -= (_diyMantissaSize - _mantissaSize - 1);
+            int clz = __builtin_clzll (_mantissa);
+            int shift = clz + 41;
+
+            _mantissa <<= shift;
+            _exponent  -= shift;
 
             return *this;
         }
@@ -127,7 +122,7 @@ namespace dconv
          * @brief normalize boundary.
          * @return a reference of the current object.
          */
-        constexpr DiyFp& normalizeBoundary () noexcept
+        inline constexpr DiyFp& normalizeBoundary () noexcept
         {
             if (_mantissa != 0)
             {
@@ -135,12 +130,13 @@ namespace dconv
                 if (shift > 0)
                 {
                     _mantissa <<= shift;
-                    _exponent -= shift;
+                    _exponent  -= shift;
                 }
             }
 
-            _mantissa <<= (_diyMantissaSize - _mantissaSize - 2);
-            _exponent -= (_diyMantissaSize - _mantissaSize - 2);
+            constexpr int shift = _diyMantissaSize - _mantissaSize - 2;
+            _mantissa <<= shift;
+            _exponent  -= shift;
 
             return *this;
         }
@@ -176,10 +172,9 @@ namespace dconv
          * @param rhs floating point.
          * @return a reference of the current object.
          */
-        constexpr DiyFp& operator-= (const DiyFp& rhs) noexcept
+        inline constexpr DiyFp& operator-= (const DiyFp& rhs) noexcept
         {
             _mantissa -= rhs._mantissa;
-
             return *this;
         }
 
@@ -188,7 +183,7 @@ namespace dconv
          * @param rhs floating point.
          * @return a reference of the current object.
          */
-        constexpr DiyFp& operator*= (const DiyFp& rhs) noexcept
+        inline constexpr DiyFp& operator*= (const DiyFp& rhs) noexcept
         {
         #if defined(__SIZEOF_INT128__)
             __uint128_t product = static_cast <__uint128_t> (_mantissa) * static_cast <__uint128_t> (rhs._mantissa);
@@ -207,7 +202,6 @@ namespace dconv
             uint64_t bd = b * d;
 
             uint64_t tmp = (bd >> 32) + (ad & M32) + (bc & M32) + (1U << 31);
-
             _mantissa = ac + (ad >> 32) + (bc >> 32) + (tmp >> 32);
         #endif
             _exponent += rhs._exponent + 64;
@@ -246,7 +240,7 @@ namespace dconv
      * @param rhs floating point.
      * @return a floating point from lhs minus rhs.
      */
-    constexpr inline DiyFp operator- (const DiyFp& lhs, const DiyFp& rhs)
+    inline constexpr DiyFp operator- (const DiyFp& lhs, const DiyFp& rhs)
     {
         return DiyFp (lhs) -= rhs;
     }
@@ -257,7 +251,7 @@ namespace dconv
      * @param rhs floating point.
      * @return a floating point from lhs multiplied by rhs.
      */
-    constexpr inline DiyFp operator* (const DiyFp& lhs, const DiyFp& rhs)
+    inline constexpr DiyFp operator* (const DiyFp& lhs, const DiyFp& rhs)
     {
         return DiyFp (lhs) *= rhs;
     }
