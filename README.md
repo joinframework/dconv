@@ -1,7 +1,7 @@
 # dconv
 
-[![Coverage Status](https://github.com/joinframework/dconv/workflows/test/badge.svg)](https://github.com/joinframework/dconv/actions?query=workflow%3Atest)
-[![Security Status](https://github.com/joinframework/dconv/actions/workflows/security.yml/badge.svg)](https://github.com/joinframework/dconv/security/code-scanning)
+[![Test Status](https://github.com/joinframework/dconv/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/joinframework/dconv/actions?query=workflow%3Atest+branch%3Amain)
+[![Security Status](https://github.com/joinframework/dconv/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/joinframework/dconv/actions?query=workflow%3Asecurity+branch%3Amain)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/44b789b2a04c4f1c9720c6b3020dd769)](https://app.codacy.com/gh/joinframework/dconv/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/44b789b2a04c4f1c9720c6b3020dd769)](https://app.codacy.com/gh/joinframework/dconv/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage)
 [![codecov](https://codecov.io/gh/joinframework/dconv/branch/main/graph/badge.svg)](https://codecov.io/gh/joinframework/dconv)
