@@ -68,7 +68,7 @@ Power compute (int exponent, int base = 5)
 {
     if (exponent == 0)
     {
-        return { 1ULL << 63, 0 };
+        return {1ULL << 63, 0};
     }
 
     if (exponent > 0)
@@ -83,7 +83,7 @@ Power compute (int exponent, int base = 5)
     else
     {
         int absExp = -exponent;
-        int bitsNeeded = static_cast <int> (absExp * 2.33) + 128 + 64; 
+        int bitsNeeded = static_cast<int> (absExp * 2.33) + 128 + 64;
         BigInt val = BigInt::powerOfTwo (bitsNeeded);
         for (int i = 0; i < absExp; ++i)
         {
@@ -130,7 +130,7 @@ int main (int argc, char* argv[])
         _exit (EXIT_FAILURE);
     }
 
-    std::vector <Power> powers;
+    std::vector<Power> powers;
     for (int exp = minExp; exp <= maxExp; ++exp)
     {
         powers.push_back (compute (exp));
@@ -156,10 +156,8 @@ int main (int argc, char* argv[])
     std::cout << "constexpr Power powers[] = {" << std::endl;
     for (size_t i = 0; i < powers.size (); ++i)
     {
-        std::cout << std::hex
-                  << "    {0x" << std::setw (16) << std::setfill ('0') << powers[i].hi << ", "
-                  << "0x" << std::setw (16) << std::setfill ('0') << powers[i].lo << "},"
-                  << std::dec << std::endl;
+        std::cout << std::hex << "    {0x" << std::setw (16) << std::setfill ('0') << powers[i].hi << ", "
+                  << "0x" << std::setw (16) << std::setfill ('0') << powers[i].lo << "}," << std::dec << std::endl;
     }
     std::cout << "};" << std::endl;
     std::cout << std::endl;

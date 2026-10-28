@@ -33,16 +33,26 @@
  */
 TEST (dtoa, digitsCount)
 {
-    EXPECT_EQ (dconv::details::digitsCount (1), 1);
-    EXPECT_EQ (dconv::details::digitsCount (11), 2);
-    EXPECT_EQ (dconv::details::digitsCount (111), 3);
-    EXPECT_EQ (dconv::details::digitsCount (1111), 4);
-    EXPECT_EQ (dconv::details::digitsCount (11111), 5);
-    EXPECT_EQ (dconv::details::digitsCount (111111), 6);
-    EXPECT_EQ (dconv::details::digitsCount (1111111), 7);
-    EXPECT_EQ (dconv::details::digitsCount (11111111), 8);
-    EXPECT_EQ (dconv::details::digitsCount (111111111), 9);
-    EXPECT_EQ (dconv::details::digitsCount (1111111111), 10);
+    EXPECT_EQ (dconv::details::digitsCount (0), 1);
+    EXPECT_EQ (dconv::details::digitsCount (9), 1);
+    EXPECT_EQ (dconv::details::digitsCount (10), 2);
+    EXPECT_EQ (dconv::details::digitsCount (99), 2);
+    EXPECT_EQ (dconv::details::digitsCount (100), 3);
+    EXPECT_EQ (dconv::details::digitsCount (999), 3);
+    EXPECT_EQ (dconv::details::digitsCount (1000), 4);
+    EXPECT_EQ (dconv::details::digitsCount (9999), 4);
+    EXPECT_EQ (dconv::details::digitsCount (10000), 5);
+    EXPECT_EQ (dconv::details::digitsCount (99999), 5);
+    EXPECT_EQ (dconv::details::digitsCount (100000), 6);
+    EXPECT_EQ (dconv::details::digitsCount (999999), 6);
+    EXPECT_EQ (dconv::details::digitsCount (1000000), 7);
+    EXPECT_EQ (dconv::details::digitsCount (9999999), 7);
+    EXPECT_EQ (dconv::details::digitsCount (10000000), 8);
+    EXPECT_EQ (dconv::details::digitsCount (99999999), 8);
+    EXPECT_EQ (dconv::details::digitsCount (100000000), 9);
+    EXPECT_EQ (dconv::details::digitsCount (999999999), 9);
+    EXPECT_EQ (dconv::details::digitsCount (1000000000), 10);
+    EXPECT_EQ (dconv::details::digitsCount (UINT32_MAX), 10);
 }
 
 /**
@@ -50,7 +60,7 @@ TEST (dtoa, digitsCount)
  */
 TEST (dtoa, dtoa)
 {
-    char beg [25] = {};
+    char beg[25] = {};
 
     char* end = dconv::dtoa (beg, 0.0);
     ASSERT_NE (end, nullptr);
@@ -75,6 +85,10 @@ TEST (dtoa, dtoa)
     end = dconv::dtoa (beg, 0.1234);
     ASSERT_NE (end, nullptr);
     EXPECT_STREQ (std::string (beg, end - beg).c_str (), "0.1234");
+
+    end = dconv::dtoa (beg, 123456789.125);
+    ASSERT_NE (end, nullptr);
+    EXPECT_STREQ (std::string (beg, end - beg).c_str (), "123456789.125");
 
     end = dconv::dtoa (beg, 1.0);
     ASSERT_NE (end, nullptr);
@@ -228,7 +242,7 @@ TEST (dtoa, dtoa)
 /**
  * @brief main function.
  */
-int main (int argc, char **argv)
+int main (int argc, char** argv)
 {
     testing::InitGoogleTest (&argc, argv);
     return RUN_ALL_TESTS ();

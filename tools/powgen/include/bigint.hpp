@@ -47,8 +47,8 @@ public:
         }
         else
         {
-            data.push_back (static_cast <uint32_t> (value));
-            uint32_t high = static_cast <uint32_t> (value >> 32);
+            data.push_back (static_cast<uint32_t> (value));
+            uint32_t high = static_cast<uint32_t> (value >> 32);
             if (high != 0)
             {
                 data.push_back (high);
@@ -61,23 +61,23 @@ public:
         uint64_t carry = 0;
         for (size_t i = 0; i < data.size (); ++i)
         {
-            uint64_t product = static_cast <uint64_t> (data[i]) * factor + carry;
-            data[i] = static_cast <uint32_t> (product);
+            uint64_t product = static_cast<uint64_t> (data[i]) * factor + carry;
+            data[i] = static_cast<uint32_t> (product);
             carry = product >> 32;
         }
         if (carry != 0)
         {
-            data.push_back (static_cast <uint32_t> (carry));
+            data.push_back (static_cast<uint32_t> (carry));
         }
     }
 
     void divide (uint32_t divisor)
     {
         uint64_t remainder = 0;
-        for (int i = static_cast <int> (data.size ()) - 1; i >= 0; --i)
+        for (int i = static_cast<int> (data.size ()) - 1; i >= 0; --i)
         {
             uint64_t current = (remainder << 32) | data[i];
-            data[i] = static_cast <uint32_t> (current / divisor);
+            data[i] = static_cast<uint32_t> (current / divisor);
             remainder = current % divisor;
         }
         removeLeadingZeros ();
@@ -85,7 +85,8 @@ public:
 
     void shiftLeft (int shift)
     {
-        if (shift == 0) return;
+        if (shift == 0)
+            return;
 
         int blockShift = shift / 32;
         int bitShift = shift % 32;
@@ -100,9 +101,9 @@ public:
             uint32_t carry = 0;
             for (size_t i = blockShift; i < data.size (); ++i)
             {
-                uint64_t temp = (static_cast <uint64_t> (data[i]) << bitShift) | carry;
-                data[i] = static_cast <uint32_t> (temp);
-                carry = static_cast <uint32_t> (temp >> 32);
+                uint64_t temp = (static_cast<uint64_t> (data[i]) << bitShift) | carry;
+                data[i] = static_cast<uint32_t> (temp);
+                carry = static_cast<uint32_t> (temp >> 32);
             }
             if (carry != 0)
             {
@@ -115,13 +116,13 @@ public:
     {
         BigInt result;
         result.data.clear ();
-        
+
         int chunks = shift / 32;
         int bit = shift % 32;
-        
+
         result.data.resize (chunks, 0);
         result.data.push_back (1U << bit);
-        
+
         return result;
     }
 
@@ -132,7 +133,7 @@ public:
             return {0, 0};
         }
 
-        int msbBlock = static_cast <int> (data.size ()) - 1;
+        int msbBlock = static_cast<int> (data.size ()) - 1;
         uint32_t msbValue = data[msbBlock];
 
         int msbBit = 31;
@@ -152,7 +153,7 @@ public:
             if (bitPos >= 0)
             {
                 int block = bitPos / 32;
-                if (block < static_cast <int> (data.size ()))
+                if (block < static_cast<int> (data.size ()))
                 {
                     int bit = bitPos % 32;
                     uint64_t bitValue = (data[block] >> bit) & 1;
@@ -167,7 +168,7 @@ public:
             if (bitPos >= 0)
             {
                 int block = bitPos / 32;
-                if (block < static_cast <int> (data.size ()))
+                if (block < static_cast<int> (data.size ()))
                 {
                     int bit = bitPos % 32;
                     uint64_t bitValue = (data[block] >> bit) & 1;
@@ -188,7 +189,7 @@ private:
         }
     }
 
-    std::vector <uint32_t> data;
+    std::vector<uint32_t> data;
 };
 
 #endif

@@ -5,7 +5,7 @@ set(PUBLIC_HEADER_DIRS
 )
 
 set(PUBLIC_HEADERS
-    include/dconv/view.hpp
+    include/dconv/probe.hpp
     include/dconv/diyfp.hpp
     include/dconv/atod.hpp
     include/dconv/atodpow.hpp

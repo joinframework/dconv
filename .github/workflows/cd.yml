@@ -1,22 +1,25 @@
-name: pages
+name: cd
 
 on:
   push:
     branches: [ main ]
 
-    workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
-  generate:
+  deploy:
     uses: ./.github/workflows/build.yml
-
-    secrets: inherit
-
-    with:
-      doc: true
 
     permissions:
       contents: read
       security-events: write
+      pull-requests: write
       pages: write
       id-token: write
+
+    secrets: inherit
+
+    with:
+      scan: true
+      coverage: true
+      doc: true

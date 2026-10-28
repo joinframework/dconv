@@ -34,11 +34,11 @@
  */
 TEST (dconv, roundtrip)
 {
-    char beg [25] = {};
+    char beg[25] = {};
     double value = 0.0;
 
     ASSERT_NE (dconv::atod ("0.0", value), nullptr);
-    char * end = dconv::dtoa (beg, value);
+    char *end = dconv::dtoa (beg, value);
     ASSERT_NE (end, nullptr);
     EXPECT_STREQ (std::string (beg, end - beg).c_str (), "0.0");
 

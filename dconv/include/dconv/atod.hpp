@@ -27,17 +27,18 @@
 
 // dconv.
 #include <dconv/atodpow.hpp>
-#include <dconv/view.hpp>
+#include <dconv/probe.hpp>
 
 // C++.
+#include <string>
 #include <limits>
 #include <memory>
 
 // C.
+#include <locale.h>
 #include <cstring>
 #include <cstdint>
 #include <cstdlib>
-#include <cmath>
 
 namespace dconv
 {
@@ -47,97 +48,138 @@ namespace dconv
         {
             constexpr LocaleDelete () noexcept = default;
 
-            void operator () (locale_t loc) noexcept
+            void operator() (locale_t loc) noexcept
             {
                 freelocale (loc);
             }
         };
 
-        using LocalePtr = std::unique_ptr <std::remove_pointer_t <locale_t>, LocaleDelete>;
+        using LocalePtr = std::unique_ptr<std::remove_pointer_t<locale_t>, LocaleDelete>;
 
-        inline const char * strtodSlow (const char * beg, double& value)
+        /**
+         * @brief convert double using strtod.
+         * @param first first character of the number.
+         * @param last position past the last character of the number.
+         * @param value converted value.
+         * @return true on success, false otherwise.
+         */
+        inline bool strtodSlow (const char* first, const char* last, double& value)
         {
             static LocalePtr locale (newlocale (LC_ALL_MASK, "C", nullptr));
+            std::string num (first, last);
             char* end = nullptr;
-            value = strtod_l (beg, &end, locale.get ());
-            return end;
+            value = strtod_l (num.c_str (), &end, locale.get ());
+            return (end && (*end == '\0'));
         }
 
-        inline void umul192 (uint64_t hi, uint64_t lo, uint64_t significand, uint64_t& high, uint64_t& middle, uint64_t& low) noexcept
+        /**
+         * @brief multiply two 64 bits unsigned integers.
+         * @param a multiplicand.
+         * @param b multiplier.
+         * @param high high 64 bits of the 128-bit result.
+         * @param low low 64 bits of the 128-bit result.
+         */
+        inline void umul128 (uint64_t a, uint64_t b, uint64_t& high, uint64_t& low) noexcept
         {
-        #if defined(__SIZEOF_INT128__)
-            __uint128_t h = static_cast <__uint128_t> (hi) * significand;
-            __uint128_t l = static_cast <__uint128_t> (lo) * significand;
-            __uint128_t s = h + (l >> 64);
+#if defined(__SIZEOF_INT128__)
+            __uint128_t p = static_cast<__uint128_t> (a) * b;
 
-            high = static_cast <uint64_t> (s >> 64);
-            middle = static_cast <uint64_t> (s);
-            low = static_cast <uint64_t> (l);
-        #else
-            uint64_t hi_hi, hi_lo, lo_hi, lo_lo;
-
-            uint64_t m_lo = static_cast <uint32_t> (significand);
-            uint64_t m_hi = significand >> 32;
-            uint64_t p0 = (hi & 0xFFFFFFFF) * m_lo;
-            uint64_t p1 = (hi >> 32) * m_lo;
-            uint64_t p2 = (hi & 0xFFFFFFFF) * m_hi;
-            uint64_t p3 = (hi >> 32) * m_hi;
+            high = static_cast<uint64_t> (p >> 64);
+            low = static_cast<uint64_t> (p);
+#else
+            uint64_t b_lo = static_cast<uint32_t> (b);
+            uint64_t b_hi = b >> 32;
+            uint64_t p0 = (a & 0xFFFFFFFF) * b_lo;
+            uint64_t p1 = (a >> 32) * b_lo;
+            uint64_t p2 = (a & 0xFFFFFFFF) * b_hi;
+            uint64_t p3 = (a >> 32) * b_hi;
             uint64_t carry = (p0 >> 32) + (p1 & 0xFFFFFFFF) + (p2 & 0xFFFFFFFF);
-            hi_lo = (carry << 32) | (p0 & 0xFFFFFFFF);
-            hi_hi = (carry >> 32) + (p1 >> 32) + (p2 >> 32) + p3;
 
-            p0 = (lo & 0xFFFFFFFF) * m_lo;
-            p1 = (lo >> 32) * m_lo;
-            p2 = (lo & 0xFFFFFFFF) * m_hi;
-            p3 = (lo >> 32) * m_hi;
-            carry = (p0 >> 32) + (p1 & 0xFFFFFFFF) + (p2 & 0xFFFFFFFF);
-            lo_lo = (carry << 32) | (p0 & 0xFFFFFFFF);
-            lo_hi = (carry >> 32) + (p1 >> 32) + (p2 >> 32) + p3;
-
-            low = lo_lo;
-            middle = hi_lo + lo_hi;
-            high = hi_hi + (middle < hi_lo ? 1 : 0);
-        #endif
+            low = (carry << 32) | (p0 & 0xFFFFFFFF);
+            high = (carry >> 32) + (p1 >> 32) + (p2 >> 32) + p3;
+#endif
         }
 
-        inline bool strtodFast (bool negative, uint64_t significand, int64_t exponent, double& value) noexcept
+        /**
+         * @brief multiply 192 bits unsigned integer by 64 bits unsigned integer.
+         * @param hi high 64 bits of the 128-bit multiplicand.
+         * @param lo low 64 bits of the 128-bit multiplicand.
+         * @param significand 64-bit multiplier.
+         * @param high high 64 bits of the 192-bit result.
+         * @param middle middle 64 bits of the 192-bit result.
+         * @param low low 64 bits of the 192-bit result.
+         */
+        inline void umul192 (uint64_t hi, uint64_t lo, uint64_t significand, uint64_t& high, uint64_t& middle,
+                             uint64_t& low) noexcept
         {
-            static constexpr double pow10[] = {
-                1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10,
-                1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21,
-                1e22
-            };
+            uint64_t hi_hi, hi_lo, lo_hi;
+            umul128 (hi, significand, hi_hi, hi_lo);
+            umul128 (lo, significand, lo_hi, low);
 
-            value = static_cast <double> (significand);
+            middle = hi_lo + lo_hi;
+            high = hi_hi + (middle < hi_lo);
+        }
 
-            if (unlikely((exponent > 22) && (exponent < (22 + 16))))
-            {
-                value *= pow10[exponent - 22];
-                exponent = 22;
-            }
+        /**
+         * @brief convert double using fast path.
+         * @param significand significand digits.
+         * @param exponent exponent.
+         * @param value converted value.
+         * @return true on success, false otherwise.
+         */
+        inline bool strtodFast (uint64_t significand, int64_t exponent, double& value) noexcept
+        {
+            static constexpr double pow10[] = {1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10, 1e11,
+                                               1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22};
 
-            if (likely ((exponent >= -22) && (exponent <= 22) && (value <= 9007199254740991.0)))
+            value = static_cast<double> (significand);
+
+            if (DCONV_LIKELY ((exponent >= -22) && (exponent <= 22) && (value <= 9007199254740991.0)))
             {
                 value = (exponent < 0) ? (value / pow10[-exponent]) : (value * pow10[exponent]);
-                value = negative ? -value : value;
                 return true;
             }
 
-            if (unlikely (value == 0.0))
+            if (DCONV_UNLIKELY ((exponent > 22) && (exponent < (22 + 16))))
             {
-                value = negative ? -0.0 : 0.0;
+                const double scaled = value * pow10[exponent - 22];
+                if (scaled <= 9007199254740991.0)
+                {
+                    value = scaled * pow10[22];
+                    return true;
+                }
+            }
+
+            if (DCONV_UNLIKELY (value == 0.0))
+            {
                 return true;
             }
 
-            if (unlikely (exponent < -325 || exponent > 308))
+            if (DCONV_UNLIKELY (exponent < -325 || exponent > 308))
             {
                 return false;
             }
 
             uint64_t high, middle, low;
             const Power& power = atodpow[exponent + 325];
-            umul192 (power.hi, power.lo, significand, high, middle, low);
             int64_t exp = ((exponent * 217706) >> 16) + 1087;
+
+            umul128 (power.hi, significand, high, middle);
+            if (DCONV_LIKELY (high != 0))
+            {
+                const int shift = __builtin_clzll (high);
+                const uint64_t top = (shift != 0) ? ((high << shift) | (middle >> (64 - shift))) : high;
+                const uint64_t frac = top & 0x7FF;
+
+                if (DCONV_LIKELY (((frac < 0x3FE) || (frac > 0x400)) && (exp - shift > 0) && (exp - shift < 2047)))
+                {
+                    uint64_t bits = (static_cast<uint64_t> (exp - shift) << 52) | ((top >> 11) & 0xFFFFFFFFFFFFF);
+                    bits += (frac > 0x400);
+                    memcpy (&value, &bits, sizeof (double));
+                    return true;
+                }
+            }
+            umul192 (power.hi, power.lo, significand, high, middle, low);
 
             int lz;
             if (high != 0)
@@ -152,10 +194,10 @@ namespace dconv
             }
             else
             {
-                return false;
+                return false;  // LCOV_EXCL_LINE
             }
 
-            if (unlikely (exp <= 0 || exp >= 2047))
+            if (DCONV_UNLIKELY (exp <= 0 || exp >= 2047))
             {
                 return false;
             }
@@ -174,23 +216,25 @@ namespace dconv
             middle |= (low != 0);
 
             uint64_t mant = (high >> 11) & 0xFFFFFFFFFFFFF;
-            uint64_t bits = (static_cast <uint64_t> (exp) << 52) | mant;
+            uint64_t bits = (static_cast<uint64_t> (exp) << 52) | mant;
             uint64_t frac = high & 0x7FF;
 
-            bool roundUp = ((frac >  0x400) |
-                           ((frac == 0x400) && ((middle != 0) || (mant & 1))) |
-                           ((frac == 0x3FF) && ((middle != 0))));
+            if (DCONV_UNLIKELY ((frac == 0x3FF) && ((middle >> 8) == (~0ULL >> 8))))
+            {
+                return false;
+            }
+
+            bool roundUp = (frac > 0x400) | ((frac == 0x400) && ((middle != 0) || (mant & 1)));
 
             bits += roundUp;
-            bits |= (static_cast <uint64_t> (negative) << 63);
-            std::memcpy (&value, &bits, sizeof (double));
+            memcpy (&value, &bits, sizeof (double));
 
             return true;
         }
 
         inline constexpr bool isDigit (char c) noexcept
         {
-            return static_cast <unsigned char> (c - '0') <= 9u;
+            return static_cast<unsigned char> (c - '0') <= 9u;
         }
 
         inline constexpr bool isSign (char c) noexcept
@@ -198,126 +242,117 @@ namespace dconv
             return (c == '+') || (c == '-');
         }
 
-        inline const char * atod (View& view, double& value)
+        inline const char* atod (StringProbe& probe, double& value)
         {
-            auto beg = view.data ();
+            const char* beg = probe.tell ();
 
-            uint64_t significand = 0;
+            bool negative = probe.getIf ('-');
             uint64_t digits = 0;
-            bool neg = view.getIf ('-');
+            uint64_t u = 0;
 
-            if (view.getIf ('0'))
+            if (probe.getIf ('0'))
             {
-                if (unlikely (isDigit (view.peek ())))
+                if (DCONV_UNLIKELY (isDigit (probe.peek ())))
                 {
                     return nullptr;
                 }
             }
-            else if (likely (isDigit (view.peek ())))
+            else if (DCONV_LIKELY (isDigit (probe.peek ())))
             {
-                significand = view.get () - '0';
-                ++digits;
-
-                while (isDigit (view.peek ()))
-                {
-                    uint64_t next = (10 * significand) + (view.get () - '0');
-                    if (unlikely (next < significand)) // overflow
-                    {
-                        return strtodSlow (beg, value);
-                    }
-                    significand = next;
-                    ++digits;
-                }
+                digits = probe.readDigits (u);
             }
-            else if (view.getIfNoCase ('i') && view.getIfNoCase ('n') && view.getIfNoCase ('f'))
+            else if (probe.getIfNoCase ('i') && probe.getIfNoCase ('n') && probe.getIfNoCase ('f'))
             {
-                if (view.getIfNoCase ('i'))
+                if (probe.getIfNoCase ('i'))
                 {
-                    if (!(view.getIfNoCase ('n') && view.getIfNoCase ('i') && 
-                          view.getIfNoCase ('t') && view.getIfNoCase ('y')))
+                    if (!(probe.getIfNoCase ('n') && probe.getIfNoCase ('i') && probe.getIfNoCase ('t') &&
+                          probe.getIfNoCase ('y')))
                     {
                         return nullptr;
                     }
                 }
-                value = neg ? -std::numeric_limits <double>::infinity () : std::numeric_limits <double>::infinity ();
-                return view.data ();
+                value = negative ? -std::numeric_limits<double>::infinity () : std::numeric_limits<double>::infinity ();
+                return probe.tell ();
             }
-            else if (view.getIfNoCase ('n') && view.getIfNoCase ('a') && view.getIfNoCase ('n'))
+            else if (probe.getIfNoCase ('n') && probe.getIfNoCase ('a') && probe.getIfNoCase ('n'))
             {
-                value = neg ? -std::numeric_limits <double>::quiet_NaN () : std::numeric_limits <double>::quiet_NaN ();
-                return view.data ();
+                value =
+                    negative ? -std::numeric_limits<double>::quiet_NaN () : std::numeric_limits<double>::quiet_NaN ();
+                return probe.tell ();
             }
             else
             {
                 return nullptr;
             }
 
-            int64_t exponent = 0;
-
-            if (view.getIf ('.'))
+            int64_t frac = 0;
+            if (probe.getIf ('.'))
             {
-                if (unlikely (!isDigit (view.peek ())))
+                if (DCONV_UNLIKELY (!isDigit (probe.peek ())))
                 {
                     return nullptr;
                 }
 
-                significand = (10 * significand) + (view.get () - '0');
-                if (significand || digits) ++digits;
-                --exponent;
-
-                while (isDigit (view.peek ()))
+                if (digits == 0)
                 {
-                    uint64_t next = (10 * significand) + (view.get () - '0');
-                    if (unlikely (next < significand)) // overflow
+                    while (probe.getIf ('0'))
                     {
-                        return strtodSlow (beg, value);
+                        --frac;
                     }
-                    significand = next;
-                    if (significand || digits) ++digits;
-                    --exponent;
                 }
+
+                size_t count = probe.readDigits (u);
+                digits += count;
+                frac -= static_cast<int64_t> (count);
             }
 
-            if (view.getIf ('e') || view.getIf ('E'))
+            int64_t exponent = 0;
+            if (probe.getIf ('e') || probe.getIf ('E'))
             {
                 bool negExp = false;
-
-                if (isSign (view.peek ()))
+                if (isSign (probe.peek ()))
                 {
-                    negExp = (view.get () == '-');
+                    negExp = (probe.get () == '-');
                 }
 
-                if (unlikely (!isDigit (view.peek ())))
+                if (DCONV_UNLIKELY (!isDigit (probe.peek ())))
                 {
                     return nullptr;
                 }
 
-                int64_t exp = view.get () - '0';
+                exponent = probe.get () - '0';
 
-                while (isDigit (view.peek ()))
+                while (isDigit (probe.peek ()))
                 {
-                    if (likely (exp < 1000))
+                    int digit = probe.get () - '0';
+
+                    if (DCONV_LIKELY (exponent <= ((std::numeric_limits<int>::max () - digit) / 10)))
                     {
-                        exp = (10 * exp) + (view.get () - '0');
-                    }
-                    else
-                    {
-                        view.get ();
+                        exponent = (exponent * 10) + digit;
                     }
                 }
 
-                exponent += (negExp ? -exp : exp);
+                if (negExp)
+                {
+                    exponent = -exponent;
+                }
             }
 
-            if (likely (digits <= 19))
+            if (DCONV_LIKELY (digits <= 19))
             {
-                if (strtodFast (neg, significand, exponent, value))
+                if (strtodFast (u, exponent + frac, value))
                 {
-                    return view.data ();
+                    value = negative ? -value : value;
+                    return probe.tell ();
                 }
             }
 
-            return strtodSlow (beg, value);
+            if (strtodSlow (beg, probe.tell (), value))
+            {
+                return probe.tell ();
+            }
+
+            return nullptr;  // LCOV_EXCL_LINE
         }
     }
 
@@ -329,8 +364,8 @@ namespace dconv
      */
     inline const char* atod (const char* str, double& value)
     {
-        View view (str);
-        return details::atod (view, value);
+        StringProbe probe (str);
+        return details::atod (probe, value);
     }
 
     /**
@@ -342,8 +377,8 @@ namespace dconv
      */
     inline const char* atod (const char* str, size_t length, double& value)
     {
-        View view (str, length);
-        return details::atod (view, value);
+        StringProbe probe (str, length);
+        return details::atod (probe, value);
     }
 
     /**
@@ -355,8 +390,8 @@ namespace dconv
      */
     inline const char* atod (const char* first, const char* last, double& value)
     {
-        View view (first, last);
-        return details::atod (view, value);
+        StringProbe probe (first, last);
+        return details::atod (probe, value);
     }
 }
 

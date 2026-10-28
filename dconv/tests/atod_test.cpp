@@ -28,6 +28,9 @@
 // libraries.
 #include <gtest/gtest.h>
 
+// C++.
+#include <limits>
+
 // C.
 #include <cmath>
 
@@ -36,8 +39,8 @@
  */
 TEST (atod, isSign)
 {
-    EXPECT_TRUE  (dconv::details::isSign ('-'));
-    EXPECT_TRUE  (dconv::details::isSign ('+'));
+    EXPECT_TRUE (dconv::details::isSign ('-'));
+    EXPECT_TRUE (dconv::details::isSign ('+'));
     EXPECT_FALSE (dconv::details::isSign ('0'));
     EXPECT_FALSE (dconv::details::isSign ('9'));
     EXPECT_FALSE (dconv::details::isSign ('a'));
@@ -51,8 +54,8 @@ TEST (atod, isDigit)
 {
     EXPECT_FALSE (dconv::details::isDigit ('-'));
     EXPECT_FALSE (dconv::details::isDigit ('+'));
-    EXPECT_TRUE  (dconv::details::isDigit ('0'));
-    EXPECT_TRUE  (dconv::details::isDigit ('9'));
+    EXPECT_TRUE (dconv::details::isDigit ('0'));
+    EXPECT_TRUE (dconv::details::isDigit ('9'));
     EXPECT_FALSE (dconv::details::isDigit ('a'));
     EXPECT_FALSE (dconv::details::isDigit ('z'));
 }
@@ -303,27 +306,115 @@ TEST (atod, atod)
     ASSERT_NE (dconv::atod ("5708990770823839207320493820740630171355185152001e-3", value), nullptr);
     EXPECT_EQ (value, 5708990770823839524233143877797980545530986496.0);
 
-    ASSERT_NE (dconv::atod ("1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-                            "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-                            "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-                            "000000000", value), nullptr);
+    ASSERT_NE (
+        dconv::atod (
+            "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            "000000000",
+            value),
+        nullptr);
     EXPECT_EQ (value, 1E308);
 
-    ASSERT_NE (dconv::atod ("2.225073858507201136057409796709131975934819546351645648023426109724822222021076945516529523908135087"
-                            "91414915891303962110687008643869459464552765720740782062174337998814106326732925355228688137214901298"
-                            "11224514518898490572223072852551331557550159143974763979834118019993239625482890171070818506906306666"
-                            "55994938275772572015763062690663332647565300009245888316433037779791869612049497390377829704905051080"
-                            "60994073026293712895895000358379996720725430436028407889577179615094551674824347103070260914462157228"
-                            "98802581825451803257070188608721131280795122334262883686223215037756666225039825343359745688844239002"
-                            "65498198385487948292206894721689831099698365846814022854243330660339850886445804001034933970427567186"
-                            "443383770486037861622771738545623065874679014086723327636718751234567890123456789012345678901e-308", value), nullptr);
+    ASSERT_NE (
+        dconv::atod (
+            "2.225073858507201136057409796709131975934819546351645648023426109724822222021076945516529523908135087"
+            "91414915891303962110687008643869459464552765720740782062174337998814106326732925355228688137214901298"
+            "11224514518898490572223072852551331557550159143974763979834118019993239625482890171070818506906306666"
+            "55994938275772572015763062690663332647565300009245888316433037779791869612049497390377829704905051080"
+            "60994073026293712895895000358379996720725430436028407889577179615094551674824347103070260914462157228"
+            "98802581825451803257070188608721131280795122334262883686223215037756666225039825343359745688844239002"
+            "65498198385487948292206894721689831099698365846814022854243330660339850886445804001034933970427567186"
+            "443383770486037861622771738545623065874679014086723327636718751234567890123456789012345678901e-308",
+            value),
+        nullptr);
     EXPECT_EQ (value, 2.2250738585072014e-308);
+
+    ASSERT_NE (dconv::atod ("57507.7647e38", value), nullptr);
+    EXPECT_EQ (value, 57507.7647e38);
+
+    ASSERT_NE (dconv::atod ("0.759154e41", value), nullptr);
+    EXPECT_EQ (value, 0.759154e41);
+
+    ASSERT_NE (dconv::atod ("1e126", value), nullptr);
+    EXPECT_EQ (value, 1e126);
+
+    ASSERT_NE (dconv::atod ("2e126", value), nullptr);
+    EXPECT_EQ (value, 2e126);
+
+    ASSERT_NE (dconv::atod ("9007199254740993.0", value), nullptr);
+    EXPECT_EQ (value, 9007199254740992.0);
+
+    ASSERT_NE (dconv::atod ("1e309", value), nullptr);
+    EXPECT_EQ (value, std::numeric_limits<double>::infinity ());
+
+    ASSERT_NE (dconv::atod ("-1e309", value), nullptr);
+    EXPECT_EQ (value, -std::numeric_limits<double>::infinity ());
+
+    ASSERT_NE (dconv::atod ("1.7976931348623159e308", value), nullptr);
+    EXPECT_EQ (value, std::numeric_limits<double>::infinity ());
+
+    ASSERT_NE (dconv::atod ("1e-330", value), nullptr);
+    EXPECT_EQ (value, 0.0);
+
+    ASSERT_NE (dconv::atod ("-1e-330", value), nullptr);
+    EXPECT_EQ (value, 0.0);
+    EXPECT_TRUE (std::signbit (value));
+
+    ASSERT_NE (dconv::atod ("1e-400", value), nullptr);
+    EXPECT_EQ (value, 0.0);
+
+    ASSERT_NE (dconv::atod ("1234567890123456789e-340", value), nullptr);
+    EXPECT_EQ (value, 1.234567890123456789e-322);
+
+    const char* str = "1.5e3x";
+    EXPECT_EQ (dconv::atod (str, value), str + 5);
+    EXPECT_EQ (value, 1500.0);
+
+    EXPECT_EQ (dconv::atod (str, 3, value), str + 3);
+    EXPECT_EQ (value, 1.5);
+
+    EXPECT_EQ (dconv::atod (str, str + 5, value), str + 5);
+    EXPECT_EQ (value, 1500.0);
+
+    str = "1234567890123456789012345678901234567890";
+    EXPECT_EQ (dconv::atod (str, 25, value), str + 25);
+    EXPECT_EQ (value, 1234567890123456789012345.0);
+
+    ASSERT_NE (dconv::atod ("12345678901234567890e400", value), nullptr);
+    EXPECT_EQ (value, std::numeric_limits<double>::infinity ());
+
+    ASSERT_NE (dconv::atod ("-12345678901234567890e-400", value), nullptr);
+    EXPECT_EQ (value, 0.0);
+    EXPECT_TRUE (std::signbit (value));
+
+    ASSERT_NE (dconv::atod ("1.7976931348623158079372897140530341508e308", value), nullptr);
+    EXPECT_EQ (value, std::numeric_limits<double>::infinity ());
+
+    ASSERT_NE (dconv::atod ("1.7976931348623158079372897140530341506e308", value), nullptr);
+    EXPECT_EQ (value, std::numeric_limits<double>::max ());
+
+    ASSERT_NE (dconv::atod ("-2.47032822920623272088284396434110686e-324", value), nullptr);
+    EXPECT_EQ (value, 0.0);
+    EXPECT_TRUE (std::signbit (value));
+
+    EXPECT_EQ (dconv::atod ("12345678901234567890.", value), nullptr);
+    EXPECT_EQ (dconv::atod ("12345678901234567890e", value), nullptr);
+    EXPECT_EQ (dconv::atod ("0.12345678901234567890e+", value), nullptr);
+
+    str = "infx";
+    EXPECT_EQ (dconv::atod (str, value), str + 3);
+    EXPECT_EQ (value, std::numeric_limits<double>::infinity ());
+
+    str = "nanx";
+    EXPECT_EQ (dconv::atod (str, value), str + 3);
+    EXPECT_TRUE (std::isnan (value));
 }
 
 /**
  * @brief main function.
  */
-int main (int argc, char **argv)
+int main (int argc, char** argv)
 {
     testing::InitGoogleTest (&argc, argv);
     return RUN_ALL_TESTS ();
