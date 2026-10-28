@@ -12,6 +12,8 @@ string(REGEX REPLACE "[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" DCONV_VERSION_PATCH ${
 
 message(STATUS "dconv version: ${DCONV_VERSION}")
 
+include(GNUInstallDirs)
+
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "Setting build type to Release as none was specified.")
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose build type." FORCE)
@@ -68,3 +70,33 @@ endif()
 
 add_subdirectory(dconv)
 add_subdirectory(tools)
+
+include(CMakePackageConfigHelpers)
+
+install(EXPORT dconvTargets
+    NAMESPACE dconv::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    COMPONENT dev
+)
+
+configure_package_config_file(
+    ${PROJECT_SOURCE_DIR}/cmake/dconvConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/dconvConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/dconvConfigVersion.cmake
+    VERSION ${DCONV_VERSION}
+    COMPATIBILITY SameMajorVersion
+    ARCH_INDEPENDENT
+)
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/dconvConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/dconvConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    COMPONENT dev
+)
+
+include(${PROJECT_SOURCE_DIR}/cmake/packaging.cmake)
