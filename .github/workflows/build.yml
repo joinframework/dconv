@@ -21,6 +21,9 @@ on:
       doc:
         type: boolean
         default: false
+      pack:
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -48,6 +51,9 @@ on:
         type: boolean
         default: false
       doc:
+        type: boolean
+        default: false
+      pack:
         type: boolean
         default: false
 
@@ -138,6 +144,18 @@ jobs:
 
       - name: Run tests (release)
         run: ctest --preset ${{ matrix.compiler }}-release
+
+      - name: Package
+        if: inputs.pack && matrix.compiler == 'gcc' && matrix.arch == 'amd64'
+        working-directory: build/gcc/release
+        run: cpack
+
+      - name: Upload package to GitHub
+        if: inputs.pack && matrix.compiler == 'gcc' && matrix.arch == 'amd64'
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: package
+          path: build/gcc/release/*.deb
 
       - name: Configure (debug)
         run: cmake --preset ${{ matrix.compiler }}-debug

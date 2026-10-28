@@ -1,4 +1,5 @@
 build*
+Testing/
 *version.hpp
 *.cproject
 *.project
@@ -6,3 +7,4 @@ build*
 *.launch
 *.vscode
 *.cache
+CMakeUserPresets.json
