@@ -14,7 +14,7 @@
 
 Double to string conversion is done using the **Grisu2** algorithm, described by **Florian Loitsch** in its publication [Printing Floating-Point Numbers Quickly and Accurately with Integers](https://florian.loitsch.com/publications).
 
-String to double conversion uses a fast-path implementation based on the **Eisel-Lemire** algorithm, with automatic fallback to strtod when inputs exceed the range or precision safely handled by the fast algorithm.
+String to double conversion uses the **Eisel-Lemire** algorithm, without fallback for mantissas of up to 19 digits; longer mantissas fall back to strtod.
 
 Any help to improve speed, accuracy or code quality is welcome.
 

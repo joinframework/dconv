@@ -101,43 +101,21 @@ namespace dconv
         }
 
         /**
-         * @brief multiply 192 bits unsigned integer by 64 bits unsigned integer.
-         * @param hi high 64 bits of the 128-bit multiplicand.
-         * @param lo low 64 bits of the 128-bit multiplicand.
-         * @param significand 64-bit multiplier.
-         * @param high high 64 bits of the 192-bit result.
-         * @param middle middle 64 bits of the 192-bit result.
-         * @param low low 64 bits of the 192-bit result.
-         */
-        inline void umul192 (uint64_t hi, uint64_t lo, uint64_t significand, uint64_t& high, uint64_t& middle,
-                             uint64_t& low) noexcept
-        {
-            uint64_t hi_hi, hi_lo, lo_hi;
-            umul128 (hi, significand, hi_hi, hi_lo);
-            umul128 (lo, significand, lo_hi, low);
-
-            middle = hi_lo + lo_hi;
-            high = hi_hi + (middle < hi_lo);
-        }
-
-        /**
          * @brief convert double using fast path.
-         * @param significand significand digits.
+         * @param significand significand digits (at most 19).
          * @param exponent exponent.
-         * @param value converted value.
-         * @return true on success, false otherwise.
+         * @return converted value.
          */
-        inline bool strtodFast (uint64_t significand, int64_t exponent, double& value) noexcept
+        inline double strtodFast (uint64_t significand, int64_t exponent) noexcept
         {
             static constexpr double pow10[] = {1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10, 1e11,
                                                1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22};
 
-            value = static_cast<double> (significand);
+            double value = static_cast<double> (significand);
 
             if (DCONV_LIKELY ((exponent >= -22) && (exponent <= 22) && (value <= 9007199254740991.0)))
             {
-                value = (exponent < 0) ? (value / pow10[-exponent]) : (value * pow10[exponent]);
-                return true;
+                return (exponent < 0) ? (value / pow10[-exponent]) : (value * pow10[exponent]);
             }
 
             if (DCONV_UNLIKELY ((exponent > 22) && (exponent < (22 + 16))))
@@ -145,91 +123,76 @@ namespace dconv
                 const double scaled = value * pow10[exponent - 22];
                 if (scaled <= 9007199254740991.0)
                 {
-                    value = scaled * pow10[22];
-                    return true;
+                    return scaled * pow10[22];
                 }
             }
 
-            if (DCONV_UNLIKELY (value == 0.0))
+            if (DCONV_UNLIKELY (significand == 0 || exponent < -342))
             {
-                return true;
+                return 0.0;
             }
 
-            if (DCONV_UNLIKELY (exponent < -325 || exponent > 308))
+            if (DCONV_UNLIKELY (exponent > 308))
             {
-                return false;
+                return std::numeric_limits<double>::infinity ();
             }
 
-            uint64_t high, middle, low;
-            const Power& power = atodpow[exponent + 325];
-            int64_t exp = ((exponent * 217706) >> 16) + 1087;
+            const int lz = __builtin_clzll (significand);
+            significand <<= lz;
 
-            umul128 (power.hi, significand, high, middle);
-            if (DCONV_LIKELY (high != 0))
+            const Power& power = atodpow[exponent + 342];
+            uint64_t high, low;
+            umul128 (power.hi, significand, high, low);
+            if ((high & 0x1FF) == 0x1FF)
             {
-                const int shift = __builtin_clzll (high);
-                const uint64_t top = (shift != 0) ? ((high << shift) | (middle >> (64 - shift))) : high;
-                const uint64_t frac = top & 0x7FF;
+                uint64_t secondHigh, secondLow;
+                umul128 (power.lo, significand, secondHigh, secondLow);
+                low += secondHigh;
+                high += (secondHigh > low);
+            }
 
-                if (DCONV_LIKELY (((frac < 0x3FE) || (frac > 0x400)) && (exp - shift > 0) && (exp - shift < 2047)))
+            const int upperbit = static_cast<int> (high >> 63);
+            const int shift = upperbit + 9;
+            uint64_t mantissa = high >> shift;
+            int64_t power2 = (((152170 + 65536) * exponent) >> 16) + 63 + upperbit - lz + 1023;
+
+            if (DCONV_UNLIKELY (power2 <= 0))
+            {
+                if (-power2 + 1 >= 64)
                 {
-                    uint64_t bits = (static_cast<uint64_t> (exp - shift) << 52) | ((top >> 11) & 0xFFFFFFFFFFFFF);
-                    bits += (frac > 0x400);
-                    memcpy (&value, &bits, sizeof (double));
-                    return true;
+                    return 0.0;
                 }
-            }
-            umul192 (power.hi, power.lo, significand, high, middle, low);
-
-            int lz;
-            if (high != 0)
-            {
-                lz = __builtin_clzll (high);
-                exp -= lz;
-            }
-            else if (middle != 0)
-            {
-                lz = __builtin_clzll (middle);
-                exp -= lz + 64;
+                mantissa >>= -power2 + 1;
+                mantissa += (mantissa & 1);
+                mantissa >>= 1;
+                power2 = (mantissa < (uint64_t (1) << 52)) ? 0 : 1;
             }
             else
             {
-                return false;  // LCOV_EXCL_LINE
+                if ((low <= 1) && (exponent >= -4) && (exponent <= 23) && ((mantissa & 3) == 1) &&
+                    ((mantissa << shift) == high))
+                {
+                    mantissa &= ~uint64_t (1);
+                }
+
+                mantissa += (mantissa & 1);
+                mantissa >>= 1;
+
+                if (DCONV_UNLIKELY (mantissa >= (uint64_t (2) << 52)))
+                {
+                    mantissa = uint64_t (1) << 52;
+                    ++power2;
+                }
+
+                if (DCONV_UNLIKELY (power2 >= 0x7FF))
+                {
+                    return std::numeric_limits<double>::infinity ();
+                }
             }
 
-            if (DCONV_UNLIKELY (exp <= 0 || exp >= 2047))
-            {
-                return false;
-            }
-
-            if (high == 0)
-            {
-                high = middle << lz;
-                middle = 0;
-            }
-            else if (lz != 0)
-            {
-                high = (high << lz) | (middle >> (64 - lz));
-                middle <<= lz;
-            }
-
-            middle |= (low != 0);
-
-            uint64_t mant = (high >> 11) & 0xFFFFFFFFFFFFF;
-            uint64_t bits = (static_cast<uint64_t> (exp) << 52) | mant;
-            uint64_t frac = high & 0x7FF;
-
-            if (DCONV_UNLIKELY ((frac == 0x3FF) && ((middle >> 8) == (~0ULL >> 8))))
-            {
-                return false;
-            }
-
-            bool roundUp = (frac > 0x400) | ((frac == 0x400) && ((middle != 0) || (mant & 1)));
-
-            bits += roundUp;
+            const uint64_t bits = (static_cast<uint64_t> (power2) << 52) | (mantissa & ((uint64_t (1) << 52) - 1));
             memcpy (&value, &bits, sizeof (double));
-
-            return true;
+            return value;
         }
 
         inline constexpr bool isDigit (char c) noexcept
@@ -340,11 +303,9 @@ namespace dconv
 
             if (DCONV_LIKELY (digits <= 19))
             {
-                if (strtodFast (u, exponent + frac, value))
-                {
-                    value = negative ? -value : value;
-                    return probe.tell ();
-                }
+                value = strtodFast (u, exponent + frac);
+                value = negative ? -value : value;
+                return probe.tell ();
             }
 
             if (strtodSlow (beg, probe.tell (), value))

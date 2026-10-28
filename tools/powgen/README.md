@@ -14,7 +14,7 @@ The tool outputs a fully self-contained C++ header containing:
 | Option          | Description                           |
 |-----------------|---------------------------------------|
 | `-h`            | Show help message                     |
-| `-l <lower>`    | Set lower exponent (default: `-325`)  |
+| `-l <lower>`    | Set lower exponent (default: `-342`)  |
 | `-u <upper>`    | Set upper exponent (default: `308`)   |
 | `-v`            | Show program version                  |
 
