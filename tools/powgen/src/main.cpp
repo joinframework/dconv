@@ -55,7 +55,7 @@ void usage ()
     std::cout << std::endl;
     std::cout << "Options" << std::endl;
     std::cout << "  -h                show available options" << std::endl;
-    std::cout << "  -l lower          lower exponent (default: -325)" << std::endl;
+    std::cout << "  -l lower          lower exponent (default: -342)" << std::endl;
     std::cout << "  -u upper          upper exponent (default: 308)" << std::endl;
     std::cout << "  -v                print version" << std::endl;
 }
@@ -89,7 +89,13 @@ Power compute (int exponent, int base = 5)
         {
             val.divide (base);
         }
-        return val.getTop128 ();
+        Power power = val.getTop128 ();
+        if (exponent >= -27)
+        {
+            power.lo += 1;
+            power.hi += (power.lo == 0);
+        }
+        return power;
     }
 }
 
@@ -99,7 +105,7 @@ Power compute (int exponent, int base = 5)
 // =========================================================================
 int main (int argc, char* argv[])
 {
-    int minExp = -325, maxExp = 308;
+    int minExp = -342, maxExp = 308;
 
     int opt;
     while ((opt = getopt (argc, argv, "hl:u:v")) != -1)
