@@ -114,7 +114,7 @@ namespace dconv
          * @brief default constructor.
          * @param in input string.
          */
-        StringProbe (const char* in)
+        explicit StringProbe (const char* in)
         : _cur (in)
         , _beg (in)
         , _end (in ? in + std::char_traits<char>::length (in) : in)
@@ -444,7 +444,7 @@ namespace dconv
          * @brief default constructor.
          * @param in input stream.
          */
-        StreamProbe (std::istream& in)
+        explicit StreamProbe (std::istream& in)
         : _in (in.rdbuf ())
         {
         }

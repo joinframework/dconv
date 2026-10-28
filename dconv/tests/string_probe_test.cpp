@@ -200,13 +200,13 @@ TEST (StringProbe, readUntilEscaped)
     ASSERT_EQ (out, "hello");
     ASSERT_EQ (probe.peek (), '"');
 
-    probe = "hello wonderful world\\";
+    probe = StringProbe ("hello wonderful world\\");
     out.clear ();
     probe.readUntilEscaped (out);
     ASSERT_EQ (out, "hello wonderful world");
     ASSERT_EQ (probe.peek (), '\\');
 
-    probe = "abc";
+    probe = StringProbe ("abc");
     out.clear ();
     probe.readUntilEscaped (out);
     ASSERT_EQ (out, "abc");
@@ -223,7 +223,7 @@ TEST (StringProbe, skipWhitespaces)
     probe.skipWhitespaces ();
     ASSERT_EQ (probe.peek (), 'h');
 
-    probe = "\t                    hello";
+    probe = StringProbe ("\t                    hello");
     probe.skipWhitespaces ();
     ASSERT_EQ (probe.peek (), 'h');
 }
@@ -237,25 +237,25 @@ TEST (StringProbe, skipWhitespacesAndComments)
     ASSERT_EQ (probe.skipWhitespacesAndComments (), 0);
     ASSERT_EQ (probe.peek (), 'h');
 
-    probe = "   /* comment */hello";
+    probe = StringProbe ("   /* comment */hello");
     ASSERT_EQ (probe.skipWhitespacesAndComments (), 0);
     ASSERT_EQ (probe.peek (), 'h');
 
-    probe = "// comment";
+    probe = StringProbe ("// comment");
     ASSERT_EQ (probe.skipWhitespacesAndComments (), 0);
     ASSERT_EQ (probe.peek (), std::char_traits<char>::eof ());
 
-    probe = "/* comment */";
+    probe = StringProbe ("/* comment */");
     ASSERT_EQ (probe.skipWhitespacesAndComments (), 0);
     ASSERT_EQ (probe.peek (), std::char_traits<char>::eof ());
 
-    probe = "/";
+    probe = StringProbe ("/");
     ASSERT_EQ (probe.skipWhitespacesAndComments (), -1);
 
-    probe = "/*";
+    probe = StringProbe ("/*");
     ASSERT_EQ (probe.skipWhitespacesAndComments (), -1);
 
-    probe = "/!";
+    probe = StringProbe ("/!");
     ASSERT_EQ (probe.skipWhitespacesAndComments (), -1);
 }
 
