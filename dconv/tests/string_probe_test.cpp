@@ -28,6 +28,8 @@
 // libraries.
 #include <gtest/gtest.h>
 
+// C++.
+#include <string>
 
 using dconv::StringProbe;
 
@@ -171,6 +173,90 @@ TEST (StringProbe, readDigits)
     probe = StringProbe ("");
     ASSERT_EQ (probe.readDigits (value), 0);
     ASSERT_EQ (value, 0);
+}
+
+/**
+ * @brief read test.
+ */
+TEST (StringProbe, read)
+{
+    StringProbe probe ("hello world");
+    char buf[8] = {};
+
+    ASSERT_EQ (probe.read (buf, 5), 5);
+    ASSERT_EQ (probe.read (buf, 8), 6);
+    ASSERT_EQ (probe.read (buf, 8), 0);
+}
+
+/**
+ * @brief readUntilEscaped test.
+ */
+TEST (StringProbe, readUntilEscaped)
+{
+    StringProbe probe ("hello\"world");
+    std::string out;
+
+    probe.readUntilEscaped (out);
+    ASSERT_EQ (out, "hello");
+    ASSERT_EQ (probe.peek (), '"');
+
+    probe = StringProbe ("hello wonderful world\\");
+    out.clear ();
+    probe.readUntilEscaped (out);
+    ASSERT_EQ (out, "hello wonderful world");
+    ASSERT_EQ (probe.peek (), '\\');
+
+    probe = StringProbe ("abc");
+    out.clear ();
+    probe.readUntilEscaped (out);
+    ASSERT_EQ (out, "abc");
+    ASSERT_EQ (probe.peek (), std::char_traits<char>::eof ());
+}
+
+/**
+ * @brief skipWhitespaces test.
+ */
+TEST (StringProbe, skipWhitespaces)
+{
+    StringProbe probe ("   hello");
+
+    probe.skipWhitespaces ();
+    ASSERT_EQ (probe.peek (), 'h');
+
+    probe = StringProbe ("\t                    hello");
+    probe.skipWhitespaces ();
+    ASSERT_EQ (probe.peek (), 'h');
+}
+
+/**
+ * @brief skipWhitespacesAndComments test.
+ */
+TEST (StringProbe, skipWhitespacesAndComments)
+{
+    StringProbe probe ("   // comment\nhello");
+    ASSERT_EQ (probe.skipWhitespacesAndComments (), 0);
+    ASSERT_EQ (probe.peek (), 'h');
+
+    probe = StringProbe ("   /* comment */hello");
+    ASSERT_EQ (probe.skipWhitespacesAndComments (), 0);
+    ASSERT_EQ (probe.peek (), 'h');
+
+    probe = StringProbe ("// comment");
+    ASSERT_EQ (probe.skipWhitespacesAndComments (), 0);
+    ASSERT_EQ (probe.peek (), std::char_traits<char>::eof ());
+
+    probe = StringProbe ("/* comment */");
+    ASSERT_EQ (probe.skipWhitespacesAndComments (), 0);
+    ASSERT_EQ (probe.peek (), std::char_traits<char>::eof ());
+
+    probe = StringProbe ("/");
+    ASSERT_EQ (probe.skipWhitespacesAndComments (), -1);
+
+    probe = StringProbe ("/*");
+    ASSERT_EQ (probe.skipWhitespacesAndComments (), -1);
+
+    probe = StringProbe ("/!");
+    ASSERT_EQ (probe.skipWhitespacesAndComments (), -1);
 }
 
 /**
