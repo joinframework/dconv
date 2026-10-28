@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.22.1)
 
 find_package(GTest REQUIRED)
 
-add_executable(view.gtest view_test.cpp)
-target_link_libraries(view.gtest ${PROJECT_NAME} GTest::gtest_main pthread)
-gtest_discover_tests(view.gtest)
+add_executable(string_probe.gtest string_probe_test.cpp)
+target_link_libraries(string_probe.gtest ${PROJECT_NAME} GTest::gtest_main pthread)
+gtest_discover_tests(string_probe.gtest)
 
 add_executable(atod.gtest atod_test.cpp)
 target_link_libraries(atod.gtest ${PROJECT_NAME} GTest::gtest_main pthread)

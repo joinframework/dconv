@@ -1,49 +1,64 @@
 # dconv
 
-[![Test Status](https://github.com/joinframework/dconv/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/joinframework/dconv/actions?query=workflow%3Atest+branch%3Amain)
-[![Security Status](https://github.com/joinframework/dconv/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/joinframework/dconv/actions?query=workflow%3Asecurity+branch%3Amain)
+[![Test Status](https://github.com/joinframework/dconv/actions/workflows/cd.yml/badge.svg?branch=main)](https://github.com/joinframework/dconv/actions?query=workflow%3Acd+branch%3Amain)
+[![Security Status](https://github.com/joinframework/dconv/actions/workflows/audit.yml/badge.svg?branch=main)](https://github.com/joinframework/dconv/actions?query=workflow%3Aaudit+branch%3Amain)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/44b789b2a04c4f1c9720c6b3020dd769)](https://app.codacy.com/gh/joinframework/dconv/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/44b789b2a04c4f1c9720c6b3020dd769)](https://app.codacy.com/gh/joinframework/dconv/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage)
-[![codecov](https://codecov.io/gh/joinframework/dconv/branch/main/graph/badge.svg)](https://codecov.io/gh/joinframework/dconv)
-[![Coverage Status](https://coveralls.io/repos/github/joinframework/dconv/badge.svg?branch=main)](https://coveralls.io/github/joinframework/dconv?branch=main)
+[![Codecov](https://codecov.io/gh/joinframework/dconv/branch/main/graph/badge.svg)](https://codecov.io/gh/joinframework/dconv)
+[![Coveralls](https://coveralls.io/repos/github/joinframework/dconv/badge.svg?branch=main)](https://coveralls.io/github/joinframework/dconv?branch=main)
 [![Doxygen](https://img.shields.io/badge/docs-doxygen-blue.svg)](https://joinframework.github.io/dconv/index.html)
 [![GitHub Releases](https://img.shields.io/github/release/joinframework/dconv.svg)](https://github.com/joinframework/dconv/releases/latest)
 [![GitHub License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/joinframework/dconv/blob/main/LICENSE)
 
-**dconv** is a C++14 library for printing and parsing floating point numbers.
+**dconv** is a header-only C++20 library for printing and parsing floating point numbers.
 
 Double to string conversion is done using the **Grisu2** algorithm, described by **Florian Loitsch** in its publication [Printing Floating-Point Numbers Quickly and Accurately with Integers](https://florian.loitsch.com/publications).
 
 String to double conversion uses a fast-path implementation based on the **Eisel-Lemire** algorithm, with automatic fallback to strtod when inputs exceed the range or precision safely handled by the fast algorithm.
 
-The code is far from being perfect so any help to improve speed, accuratie, code quality etc... is welcome.
-
-## Dependencies
-
-To install **dconv** dependencies do this:
-```bash
-sudo apt update && sudo apt install libgtest-dev libgmock-dev
-```
-
-## Download
-
-To download the latest source do this:
-```bash
-git clone https://github.com/mrabine/dconv.git
-```
-
-## Configuration
-
-To configure **dconv** do this:
-```bash
-cmake -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DDCONV_ENABLE_TESTS=ON -DDCONV_ENABLE_COVERAGE=ON
-```
+Any help to improve speed, accuracy or code quality is welcome.
 
 ## Build
 
-To build **dconv** do this:
+### Prerequisites
+
+Install build tools, compilers and test dependencies (every preset builds the test suite):
 ```bash
-cmake --build build --config Debug
+sudo apt install gcc g++ clang clang-tools libclang-rt-dev cmake ninja-build libgtest-dev libgmock-dev
+```
+
+> **Compilers:** GCC 11+ or Clang 16+ (C++20). Clang requires `libclang-rt-dev` for coverage instrumentation (`--coverage`).
+
+### Build from Source
+
+```bash
+git clone https://github.com/joinframework/dconv.git
+cd dconv
+cmake --preset gcc-release
+cmake --build --preset gcc-release
+```
+
+Available presets are `gcc-debug`, `gcc-release`, `gcc-asan`, `clang-debug`, `clang-release` and `clang-asan`.
+Debug presets enable coverage, asan presets enable AddressSanitizer and UndefinedBehaviorSanitizer.
+
+dconv is header-only: to install the headers without building the tests, configure without a preset:
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --install build
+```
+
+### Build Options
+
+| Option | Default | Description |
+| :--- | :---: | :--- |
+| `DCONV_ENABLE_TESTS` | `OFF` | Build the test suite. |
+| `DCONV_ENABLE_COVERAGE` | `OFF` | Enable code coverage instrumentation (requires Debug build). |
+| `DCONV_ENABLE_ASAN` | `OFF` | Enable AddressSanitizer and UndefinedBehaviorSanitizer. |
+
+### Run Tests
+
+```bash
+ctest --preset gcc-release
 ```
 
 ## Usage
@@ -53,7 +68,7 @@ The printing API can be used this way:
 ```cpp
 #include <dconv/dtoa.hpp>
 
-char value [25];
+char value[25];
 char* end = dconv::dtoa (value, -2.22507e-308);
 ```
 
@@ -63,8 +78,11 @@ The parsing API can be used this way:
 #include <dconv/atod.hpp>
 
 double value;
-char* end = dconv::atod ("-2.22507e-308", value);
+const char* end = dconv::atod ("-2.22507e-308", value);
 ```
+
+`dtoa` needs a buffer of at least 25 bytes and returns the end of the written characters.
+`atod` returns the end of the parsed characters, or `nullptr` on failure.
 
 ## License
 

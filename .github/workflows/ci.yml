@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [ main ]
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    uses: ./.github/workflows/build.yml
+
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
+      pages: write
+      id-token: write
+
+    secrets: inherit
+
+    with:
+      coverage: true
+      scan: true
+      asan: true
