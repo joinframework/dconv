@@ -476,6 +476,148 @@ TEST (atod, atod)
     str = "nanx";
     EXPECT_EQ (dconv::atod (str, value), str + 3);
     EXPECT_TRUE (std::isnan (value));
+
+    uint64_t significand = 0;
+    int64_t exponent = 0;
+    bool negative = false;
+    std::error_code ec;
+
+    str = "-2.5e3";
+    dconv::StringProbe realProbe (str);
+    ASSERT_EQ (dconv::atod (realProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, -2500.0);
+    EXPECT_EQ (significand, 25u);
+    EXPECT_EQ (exponent, 2);
+    EXPECT_TRUE (negative);
+
+    str = "0.001";
+    dconv::StringProbe fractionProbe (str);
+    ASSERT_EQ (dconv::atod (fractionProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, 0.001);
+    EXPECT_EQ (significand, 1u);
+    EXPECT_EQ (exponent, -3);
+    EXPECT_FALSE (negative);
+
+    str = "1e0";
+    dconv::StringProbe exponentProbe (str);
+    ASSERT_EQ (dconv::atod (exponentProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, 1.0);
+    EXPECT_EQ (significand, 1u);
+    EXPECT_EQ (exponent, 0);
+    EXPECT_FALSE (negative);
+
+    str = "18446744073709551616";
+    dconv::StringProbe overflowProbe (str);
+    ASSERT_EQ (dconv::atod (overflowProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, 18446744073709551616.0);
+    EXPECT_EQ (significand, 1844674407370955161u);
+    EXPECT_EQ (exponent, 1);
+    EXPECT_FALSE (negative);
+
+    str = "12345678901234567890.5";
+    dconv::StringProbe longProbe (str);
+    ASSERT_EQ (dconv::atod (longProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, 12345678901234567890.5);
+    EXPECT_EQ (significand, 1234567890123456789u);
+    EXPECT_EQ (exponent, 1);
+    EXPECT_FALSE (negative);
+
+    str = "0.12345678901234567890123";
+    dconv::StringProbe longFractionProbe (str);
+    ASSERT_EQ (dconv::atod (longFractionProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, 0.12345678901234567890123);
+    EXPECT_EQ (significand, 1234567890123456789u);
+    EXPECT_EQ (exponent, -19);
+    EXPECT_FALSE (negative);
+
+    std::istringstream overflowStreamIn ("18446744073709551616");
+    dconv::StreamProbe overflowStreamProbe (overflowStreamIn);
+    ASSERT_EQ (dconv::atod (overflowStreamProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, 18446744073709551616.0);
+    EXPECT_EQ (significand, 1844674407370955161u);
+    EXPECT_EQ (exponent, 1);
+    EXPECT_FALSE (negative);
+
+    str = "123,";
+    dconv::StringProbe integerProbe (str);
+    ASSERT_EQ (dconv::atod (integerProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::NotDouble);
+    EXPECT_EQ (significand, 123u);
+    EXPECT_EQ (exponent, 0);
+    EXPECT_FALSE (negative);
+
+    str = "-0";
+    dconv::StringProbe zeroProbe (str);
+    ASSERT_EQ (dconv::atod (zeroProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::NotDouble);
+    EXPECT_EQ (significand, 0u);
+    EXPECT_EQ (exponent, 0);
+    EXPECT_TRUE (negative);
+
+    str = "18446744073709551615";
+    dconv::StringProbe maxProbe (str);
+    ASSERT_EQ (dconv::atod (maxProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::NotDouble);
+    EXPECT_EQ (significand, 18446744073709551615u);
+    EXPECT_EQ (exponent, 0);
+    EXPECT_FALSE (negative);
+
+    std::istringstream maxStreamIn ("18446744073709551615");
+    dconv::StreamProbe maxStreamProbe (maxStreamIn);
+    ASSERT_EQ (dconv::atod (maxStreamProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::NotDouble);
+    EXPECT_EQ (significand, 18446744073709551615u);
+    EXPECT_FALSE (negative);
+
+    str = "01";
+    dconv::StringProbe leadingZeroProbe (str);
+    ASSERT_EQ (dconv::atod (leadingZeroProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    str = "1.";
+    dconv::StringProbe dotProbe (str);
+    ASSERT_EQ (dconv::atod (dotProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    str = "1e+";
+    dconv::StringProbe exponentSignProbe (str);
+    ASSERT_EQ (dconv::atod (exponentSignProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    str = "-";
+    dconv::StringProbe signProbe (str);
+    ASSERT_EQ (dconv::atod (signProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    str = "infinit";
+    dconv::StringProbe infinityProbe (str);
+    ASSERT_EQ (dconv::atod (infinityProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    str = "12345678901234567890.";
+    dconv::StringProbe longDotProbe (str);
+    ASSERT_EQ (dconv::atod (longDotProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    str = "0.12345678901234567890e";
+    dconv::StringProbe longExponentProbe (str);
+    ASSERT_EQ (dconv::atod (longExponentProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    std::istringstream longDotStreamIn ("12345678901234567890.");
+    dconv::StreamProbe longDotStreamProbe (longDotStreamIn);
+    ASSERT_EQ (dconv::atod (longDotStreamProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    str = "-infinity";
+    dconv::StringProbe infinityValueProbe (str);
+    ASSERT_EQ (dconv::atod (infinityValueProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, -std::numeric_limits<double>::infinity ());
+
+    str = "nan";
+    dconv::StringProbe nanProbe (str);
+    ASSERT_EQ (dconv::atod (nanProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_TRUE (std::isnan (value));
 }
 
 /**

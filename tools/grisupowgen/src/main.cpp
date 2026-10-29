@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2025 Mathieu Rabine
+ * Copyright (c) 2026 Mathieu Rabine
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,12 +28,18 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
+#include <vector>
 
 #include <unistd.h>
 #include <getopt.h>
-#include <cstring>
 #include <cstdint>
 #include <cmath>
+
+struct CachedPower
+{
+    uint64_t mantissa;
+    int exponent;
+};
 
 // =========================================================================
 //   CLASS     :
@@ -41,7 +47,7 @@
 // =========================================================================
 void version ()
 {
-    std::cout << "powgen version " << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_PATCH << std::endl;
+    std::cout << "grisupowgen version " << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_PATCH << std::endl;
 }
 
 // =========================================================================
@@ -51,12 +57,12 @@ void version ()
 void usage ()
 {
     std::cout << "Usage" << std::endl;
-    std::cout << "  powgen [options]" << std::endl;
+    std::cout << "  grisupowgen [options]" << std::endl;
     std::cout << std::endl;
     std::cout << "Options" << std::endl;
     std::cout << "  -h                show available options" << std::endl;
-    std::cout << "  -l lower          lower exponent (default: -342)" << std::endl;
-    std::cout << "  -u upper          upper exponent (default: 308)" << std::endl;
+    std::cout << "  -l lower          lower exponent (default: -343)" << std::endl;
+    std::cout << "  -u upper          upper exponent (default: 343)" << std::endl;
     std::cout << "  -v                print version" << std::endl;
 }
 
@@ -64,39 +70,37 @@ void usage ()
 //   CLASS     :
 //   METHOD    : compute
 // =========================================================================
-Power compute (int exponent, int base = 5)
+CachedPower compute (int exponent)
 {
-    if (exponent == 0)
-    {
-        return {1ULL << 63, 0};
-    }
+    BigInt val (1);
+    int shift = 0;
 
     if (exponent > 0)
     {
-        BigInt val (1);
         for (int i = 0; i < exponent; ++i)
         {
-            val.multiply (base);
+            val.multiply (10);
         }
-        return val.getTop128 ();
     }
-    else
+    else if (exponent < 0)
     {
         int absExp = -exponent;
-        int bitsNeeded = static_cast<int> (absExp * 2.33) + 128 + 64;
-        BigInt val = BigInt::powerOfTwo (bitsNeeded);
+        shift = static_cast<int> (absExp * std::log2 (10.0)) + 128;
+        val = BigInt::powerOfTwo (shift);
         for (int i = 0; i < absExp; ++i)
         {
-            val.divide (base);
+            val.divide (10);
         }
-        Power power = val.getTop128 ();
-        if (exponent >= -27)
-        {
-            power.lo += 1;
-            power.hi += (power.lo == 0);
-        }
-        return power;
     }
+
+    Power top = val.getTop128 ();
+    CachedPower power = {top.hi + (top.lo >> 63), val.bitLength () - 64 - shift};
+    if (power.mantissa == 0)
+    {
+        power.mantissa = 1ULL << 63;
+        ++power.exponent;
+    }
+    return power;
 }
 
 // =========================================================================
@@ -105,7 +109,7 @@ Power compute (int exponent, int base = 5)
 // =========================================================================
 int main (int argc, char* argv[])
 {
-    int minExp = -342, maxExp = 308;
+    int minExp = -343, maxExp = 343;
 
     int opt;
     while ((opt = getopt (argc, argv, "hl:u:v")) != -1)
@@ -136,14 +140,14 @@ int main (int argc, char* argv[])
         _exit (EXIT_FAILURE);
     }
 
-    std::vector<Power> powers;
+    std::vector<CachedPower> powers;
     for (int exp = minExp; exp <= maxExp; ++exp)
     {
         powers.push_back (compute (exp));
     }
 
-    std::cout << "#ifndef __POWER_HPP__" << std::endl;
-    std::cout << "#define __POWER_HPP__" << std::endl;
+    std::cout << "#ifndef __CACHED_POWER_HPP__" << std::endl;
+    std::cout << "#define __CACHED_POWER_HPP__" << std::endl;
     std::cout << std::endl;
 
     std::cout << "#include <cstdint>" << std::endl;
@@ -153,17 +157,17 @@ int main (int argc, char* argv[])
     std::cout << "#define MAX_EXPONENT " << maxExp << std::endl;
     std::cout << std::endl;
 
-    std::cout << "struct Power {" << std::endl;
-    std::cout << "    uint64_t hi;" << std::endl;
-    std::cout << "    uint64_t lo;" << std::endl;
+    std::cout << "struct CachedPower {" << std::endl;
+    std::cout << "    uint64_t mantissa;" << std::endl;
+    std::cout << "    int exponent;" << std::endl;
     std::cout << "};" << std::endl;
     std::cout << std::endl;
 
-    std::cout << "constexpr Power powers[] = {" << std::endl;
+    std::cout << "constexpr CachedPower powers[] = {" << std::endl;
     for (size_t i = 0; i < powers.size (); ++i)
     {
-        std::cout << std::hex << "    {0x" << std::setw (16) << std::setfill ('0') << powers[i].hi << ", "
-                  << "0x" << std::setw (16) << std::setfill ('0') << powers[i].lo << "}," << std::dec << std::endl;
+        std::cout << std::hex << "    {0x" << std::setw (16) << std::setfill ('0') << powers[i].mantissa << ", "
+                  << std::dec << powers[i].exponent << "}," << std::endl;
     }
     std::cout << "};" << std::endl;
     std::cout << std::endl;

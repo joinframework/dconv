@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef __POWGEN_BIGINT_HPP__
-#define __POWGEN_BIGINT_HPP__
+#ifndef __EISELLEMIREPOWGEN_BIGINT_HPP__
+#define __EISELLEMIREPOWGEN_BIGINT_HPP__
 
 #include <vector>
 
@@ -124,6 +124,18 @@ public:
         result.data.push_back (1U << bit);
 
         return result;
+    }
+
+    int bitLength () const
+    {
+        int length = static_cast<int> (data.size ()) * 32;
+        uint32_t top = data.back ();
+        while (length > 0 && (top & 0x80000000) == 0)
+        {
+            top <<= 1;
+            --length;
+        }
+        return length;
     }
 
     Power getTop128 () const

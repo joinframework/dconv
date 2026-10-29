@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef __DCONV_ATODPOW_HPP__
-#define __DCONV_ATODPOW_HPP__
+#ifndef __DCONV_EISELLEMIREPOW_HPP__
+#define __DCONV_EISELLEMIREPOW_HPP__
 
 #include <cstdint>
 
@@ -37,7 +37,7 @@ namespace dconv
             uint64_t lo;
         };
 
-        constexpr Power atodpow[] = {
+        constexpr Power eisellemirepow[] = {
             {0xeef453d6923bd65a, 0x113faa2906a13b3f}, {0x9558b4661b6565f8, 0x4ac7ca59a424c507},
             {0xbaaee17fa23ebf76, 0x5d79bcf00d2df649}, {0xe95a99df8ace6f53, 0xf4d82c2c107973dc},
             {0x91d8a02bb6c10594, 0x79071b9b8a4be869}, {0xb64ec836a47146f9, 0x9748e2826cdee284},
