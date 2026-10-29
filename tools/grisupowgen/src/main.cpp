@@ -84,9 +84,10 @@ CachedPower compute (int exponent)
     }
     else if (exponent < 0)
     {
-        shift = static_cast<int> (-exponent * std::log2 (10.0)) + 128;
+        int absExp = -exponent;
+        shift = static_cast<int> (absExp * std::log2 (10.0)) + 128;
         val = BigInt::powerOfTwo (shift);
-        for (int i = 0; i < -exponent; ++i)
+        for (int i = 0; i < absExp; ++i)
         {
             val.divide (10);
         }
