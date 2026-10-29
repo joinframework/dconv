@@ -108,7 +108,7 @@ namespace dconv
          * @param probe probe to read from, positioned on the first digit beyond the significand.
          * @param negative sign of the number.
          * @param significand first 19 significant digits.
-         * @param scale power of ten applied to the significand so far.
+         * @param scale power of ten applied to the significand, updated with the final exponent.
          * @param fraction true if the reading stopped in the fractional part.
          * @param value converted value.
          * @param pending integer digit already read beyond the significand, or -1.
@@ -116,7 +116,7 @@ namespace dconv
          */
         template <typename Probe>
         __attribute__ ((cold, noinline)) bool atodLong (Probe& probe, bool negative, uint64_t significand,
-                                                        int64_t scale, bool fraction, double& value, int pending = -1)
+                                                        int64_t& scale, bool fraction, double& value, int pending = -1)
         {
             static constexpr int maxDigits = 800;
             char text[maxDigits + 32];
@@ -246,7 +246,7 @@ namespace dconv
                             significand = (u * 10) + pending;
                             return Errc::NotDouble;
                         }
-                        if (!atodLong (probe, negative, u, scale, false, value, pending))
+                        if (!atodLong (probe, negative, u, exponent, false, value, pending))
                         {
                             return Errc::InvalidNumber;
                         }
@@ -306,7 +306,7 @@ namespace dconv
                 {
                     if (DCONV_UNLIKELY (isDigit (probe.peek ())))
                     {
-                        if (!atodLong (probe, negative, u, scale, true, value))
+                        if (!atodLong (probe, negative, u, exponent, true, value))
                         {
                             return Errc::InvalidNumber;
                         }
