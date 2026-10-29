@@ -36,8 +36,9 @@ namespace dconv
      */
     enum class Errc
     {
-        InvalidNumber = 1, /**< Number is invalid. */
-        NotDouble,         /**< Number is an integer. */
+        Success = 0,   /**< Success. */
+        InvalidNumber, /**< Number is invalid. */
+        NotDouble,     /**< Number is an integer. */
     };
 
     /**

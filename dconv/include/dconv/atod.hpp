@@ -108,7 +108,7 @@ namespace dconv
          * @param probe probe to read from, positioned on the first digit beyond the significand.
          * @param negative sign of the number.
          * @param significand first 19 significant digits.
-         * @param scale power of ten applied to the significand, updated with the final exponent.
+         * @param scale power of ten applied to the significand so far.
          * @param fraction true if the reading stopped in the fractional part.
          * @param value converted value.
          * @param pending integer digit already read beyond the significand, or -1.
@@ -116,7 +116,7 @@ namespace dconv
          */
         template <typename Probe>
         __attribute__ ((cold, noinline)) bool atodLong (Probe& probe, bool negative, uint64_t significand,
-                                                        int64_t& scale, bool fraction, double& value, int pending = -1)
+                                                        int64_t scale, bool fraction, double& value, int pending = -1)
         {
             static constexpr int maxDigits = 800;
             char text[maxDigits + 32];
@@ -201,12 +201,10 @@ namespace dconv
          * @param significand integer value when the error is NotDouble, first significant digits read otherwise.
          * @param exponent decimal exponent read.
          * @param negative sign read.
-         * @param ec error code set on failure.
-         * @return 0 on success, -1 on failure.
+         * @return Errc::Success on success, the error otherwise.
          */
         template <typename Probe, bool Rewind = std::is_same_v<Probe, StringProbe>>
-        inline int atod (Probe& probe, double& value, uint64_t& significand, int64_t& exponent, bool& negative,
-                         std::error_code& ec)
+        inline Errc atod (Probe& probe, double& value, uint64_t& significand, int64_t& exponent, bool& negative)
         {
             const char* beg = nullptr;
             if constexpr (Rewind)
@@ -217,44 +215,45 @@ namespace dconv
             significand = 0;
             exponent = 0;
             negative = probe.getIf ('-');
+            uint64_t u = 0;
+            int64_t scale = 0;
             size_t digits = 0;
 
             if (probe.getIf ('0'))
             {
                 if (DCONV_UNLIKELY (isDigit (probe.peek ())))
                 {
-                    ec = make_error_code (Errc::InvalidNumber);
-                    return -1;
+                    return Errc::InvalidNumber;
                 }
             }
             else if (DCONV_LIKELY (isDigit (probe.peek ())))
             {
                 if constexpr (Rewind)
                 {
-                    digits = probe.readDigits (significand);
+                    digits = probe.readDigits (u);
                 }
                 else
                 {
-                    digits = probe.readDigits (significand, 19);
+                    digits = probe.readDigits (u, 19);
                     if (DCONV_UNLIKELY (isDigit (probe.peek ())))
                     {
+                        significand = u;
                         const int pending = probe.get () - '0';
                         const int next = probe.peek ();
                         if (!isDigit (next) && (next != '.') && (next != 'e') && (next != 'E') &&
-                            (significand <= (std::numeric_limits<uint64_t>::max () - pending) / 10))
+                            (u <= (std::numeric_limits<uint64_t>::max () - pending) / 10))
                         {
-                            significand = (significand * 10) + pending;
-                            ec = make_error_code (Errc::NotDouble);
-                            return -1;
+                            significand = (u * 10) + pending;
+                            return Errc::NotDouble;
                         }
-                        if (!atodLong (probe, negative, significand, exponent, false, value, pending))
+                        if (!atodLong (probe, negative, u, scale, false, value, pending))
                         {
-                            ec = make_error_code (Errc::InvalidNumber);
-                            return -1;
+                            return Errc::InvalidNumber;
                         }
-                        return 0;
+                        return Errc::Success;
                     }
                 }
+                significand = u;
             }
             else if (probe.getIfNoCase ('i') && probe.getIfNoCase ('n') && probe.getIfNoCase ('f'))
             {
@@ -263,23 +262,21 @@ namespace dconv
                     if (!(probe.getIfNoCase ('n') && probe.getIfNoCase ('i') && probe.getIfNoCase ('t') &&
                           probe.getIfNoCase ('y')))
                     {
-                        ec = make_error_code (Errc::InvalidNumber);
-                        return -1;
+                        return Errc::InvalidNumber;
                     }
                 }
                 value = negative ? -std::numeric_limits<double>::infinity () : std::numeric_limits<double>::infinity ();
-                return 0;
+                return Errc::Success;
             }
             else if (probe.getIfNoCase ('n') && probe.getIfNoCase ('a') && probe.getIfNoCase ('n'))
             {
                 value =
                     negative ? -std::numeric_limits<double>::quiet_NaN () : std::numeric_limits<double>::quiet_NaN ();
-                return 0;
+                return Errc::Success;
             }
             else
             {
-                ec = make_error_code (Errc::InvalidNumber);
-                return -1;
+                return Errc::InvalidNumber;
             }
 
             bool real = false;
@@ -288,32 +285,32 @@ namespace dconv
                 real = true;
                 if (DCONV_UNLIKELY (!isDigit (probe.peek ())))
                 {
-                    ec = make_error_code (Errc::InvalidNumber);
-                    return -1;
+                    return Errc::InvalidNumber;
                 }
 
                 if (digits == 0)
                 {
                     while (probe.getIf ('0'))
                     {
-                        --exponent;
+                        --scale;
                     }
                 }
 
-                size_t count =
-                    probe.readDigits (significand, Rewind ? std::numeric_limits<size_t>::max () : 19 - digits);
+                size_t count = probe.readDigits (u, Rewind ? std::numeric_limits<size_t>::max () : 19 - digits);
+                significand = u;
                 digits += count;
-                exponent -= static_cast<int64_t> (count);
+                scale -= static_cast<int64_t> (count);
+                exponent = scale;
+
                 if constexpr (!Rewind)
                 {
                     if (DCONV_UNLIKELY (isDigit (probe.peek ())))
                     {
-                        if (!atodLong (probe, negative, significand, exponent, true, value))
+                        if (!atodLong (probe, negative, u, scale, true, value))
                         {
-                            ec = make_error_code (Errc::InvalidNumber);
-                            return -1;
+                            return Errc::InvalidNumber;
                         }
-                        return 0;
+                        return Errc::Success;
                     }
                 }
             }
@@ -323,28 +320,27 @@ namespace dconv
                 if (DCONV_UNLIKELY (digits > 19))
                 {
                     probe.seek (beg);
-                    return atod<Probe, false> (probe, value, significand, exponent, negative, ec);
+                    return atod<Probe, false> (probe, value, significand, exponent, negative);
                 }
             }
 
             real |= (probe.peek () == 'e') || (probe.peek () == 'E');
             int64_t power = 0;
+
             if (!readExponent (probe, power))
             {
-                ec = make_error_code (Errc::InvalidNumber);
-                return -1;
+                return Errc::InvalidNumber;
             }
 
             if (!real)
             {
-                ec = make_error_code (Errc::NotDouble);
-                return -1;
+                return Errc::NotDouble;
             }
 
-            exponent += power;
-            value = eisellemire::compute (significand, exponent);
+            exponent = scale + power;
+            value = eisellemire::compute (u, exponent);
             value = negative ? -value : value;
-            return 0;
+            return Errc::Success;
         }
 
         /**
@@ -359,21 +355,13 @@ namespace dconv
             uint64_t significand;
             int64_t exponent;
             bool negative;
-            std::error_code ec (0, errorCategory ());
-
-            if (atod (probe, value, significand, exponent, negative, ec) == 0)
+            const Errc err = atod (probe, value, significand, exponent, negative);
+            if (err == Errc::NotDouble)
             {
+                value = negative ? -static_cast<double> (significand) : static_cast<double> (significand);
                 return true;
             }
-
-            if (ec == Errc::NotDouble)
-            {
-                value = static_cast<double> (significand);
-                value = negative ? -value : value;
-                return true;
-            }
-
-            return false;
+            return err == Errc::Success;
         }
     }
 
@@ -390,7 +378,13 @@ namespace dconv
     inline int atod (StreamProbe& probe, double& value, uint64_t& significand, int64_t& exponent, bool& negative,
                      std::error_code& ec)
     {
-        return details::atod (probe, value, significand, exponent, negative, ec);
+        const Errc err = details::atod (probe, value, significand, exponent, negative);
+        if (err != Errc::Success)
+        {
+            ec = make_error_code (err);
+            return -1;
+        }
+        return 0;
     }
 
     /**
@@ -429,7 +423,13 @@ namespace dconv
     inline int atod (StringProbe& probe, double& value, uint64_t& significand, int64_t& exponent, bool& negative,
                      std::error_code& ec)
     {
-        return details::atod (probe, value, significand, exponent, negative, ec);
+        const Errc err = details::atod (probe, value, significand, exponent, negative);
+        if (err != Errc::Success)
+        {
+            ec = make_error_code (err);
+            return -1;
+        }
+        return 0;
     }
 
     /**
