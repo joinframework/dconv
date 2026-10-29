@@ -38,6 +38,10 @@ add_executable(grisu3.gtest grisu3_test.cpp)
 target_link_libraries(grisu3.gtest ${PROJECT_NAME} GTest::gtest_main pthread)
 gtest_discover_tests(grisu3.gtest)
 
+add_executable(schubfach.gtest schubfach_test.cpp)
+target_link_libraries(schubfach.gtest ${PROJECT_NAME} GTest::gtest_main pthread)
+gtest_discover_tests(schubfach.gtest)
+
 add_executable(dtoa.gtest dtoa_test.cpp)
 target_link_libraries(dtoa.gtest ${PROJECT_NAME} GTest::gtest_main pthread)
 gtest_discover_tests(dtoa.gtest)

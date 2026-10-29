@@ -131,6 +131,63 @@ namespace dconv
                 return writeExponent (&buffer[length + 2], kk - 1);
             }
         }
+
+        /**
+         * @brief write a decimal significand with the same layout as prettify.
+         * @param buffer buffer to write the string representation to.
+         * @param digits decimal significand.
+         * @param length number of digits.
+         * @param k decimal exponent.
+         * @return end position.
+         */
+        inline char* format (char* buffer, uint64_t digits, int length, int k) noexcept
+        {
+            const int kk = length + k;
+
+            if ((kk > 21) || (kk <= -6))
+            {
+                length -= writeDigits (buffer + 1, digits, length);
+                buffer[0] = buffer[1];
+                buffer[1] = '.';
+                const int position = (length > 1) ? length + 1 : 1;
+                buffer[position] = 'e';
+                return writeExponent (&buffer[position + 1], kk - 1);
+            }
+
+            if (length <= kk)
+            {
+                writeDigits (buffer, digits, length);
+                for (int i = length; i < kk; ++i)
+                {
+                    buffer[i] = '0';
+                }
+                buffer[kk] = '.';
+                buffer[kk + 1] = '0';
+                return &buffer[kk + 2];
+            }
+            else if (0 < kk)
+            {
+                length -= writeDigits (buffer + 1, digits, length);
+                for (int i = 0; i < kk; ++i)
+                {
+                    buffer[i] = buffer[i + 1];
+                }
+                buffer[kk] = '.';
+                return &buffer[length + 1];
+            }
+            else
+            {
+                const int offset = 2 - kk;
+                buffer[0] = '0';
+                buffer[1] = '.';
+                for (int i = 2; i < offset; ++i)
+                {
+                    buffer[i] = '0';
+                }
+                length -= writeDigits (buffer + offset, digits, length);
+                return &buffer[length + offset];
+            }
+        }
     }
 }
 

@@ -40,6 +40,22 @@ namespace dconv
             "0001020304050607080910111213141516171819202122232425262728293031323334353637383940414243444546474849505152"
             "5354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899";
 
+        /// trailing zeros of the two digits decimal representations of 0 to 99.
+        alignas (64) constexpr uint8_t pairZeros[] = {
+            2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+        /**
+         * @brief count the trailing zeros of a four digits group.
+         * @param group four digits group.
+         * @return number of trailing zeros.
+         */
+        inline int countTrailingZeros (uint32_t group) noexcept
+        {
+            return pairZeros[group % 100] + ((group % 100 == 0) ? pairZeros[group / 100] : 0);
+        }
+
         /**
          * @brief count the digits of a decimal significand.
          * @param digits decimal significand.
@@ -82,6 +98,86 @@ namespace dconv
             return (digits >= 1000000000) ? 10 : 9;
         }
 
+        /**
+         * @brief write the digits of a decimal significand.
+         * @param buffer buffer to write the digits to.
+         * @param digits decimal significand.
+         * @param length number of digits.
+         * @return number of trailing zeros written.
+         */
+        inline int writeDigits (char* buffer, uint64_t digits, int length) noexcept
+        {
+            uint32_t high = static_cast<uint32_t> (digits);
+            uint32_t low = 0;
+            if (digits >= 100000000)
+            {
+                high = static_cast<uint32_t> (digits / 100000000);
+                low = static_cast<uint32_t> (digits % 100000000);
+            }
+
+            char* const end = buffer + length;
+            char* cur = end;
+            int zeros = 0;
+            if (digits >= 100000000)
+            {
+                cur -= 8;
+                if (low == 0)
+                {
+                    __builtin_memcpy (cur, "00000000", 8);
+                    zeros = 8;
+                }
+                else
+                {
+                    const uint32_t upper = low / 10000;
+                    const uint32_t lower = low % 10000;
+                    __builtin_memcpy (cur, &digitPairs[(upper / 100) * 2], 2);
+                    __builtin_memcpy (cur + 2, &digitPairs[(upper % 100) * 2], 2);
+                    __builtin_memcpy (cur + 4, &digitPairs[(lower / 100) * 2], 2);
+                    __builtin_memcpy (cur + 6, &digitPairs[(lower % 100) * 2], 2);
+                    zeros = (lower != 0) ? countTrailingZeros (lower) : 4 + countTrailingZeros (upper);
+                }
+            }
+
+            if (high >= 10000)
+            {
+                const uint32_t lower = high % 10000;
+                high /= 10000;
+                cur -= 4;
+                __builtin_memcpy (cur, &digitPairs[(lower / 100) * 2], 2);
+                __builtin_memcpy (cur + 2, &digitPairs[(lower % 100) * 2], 2);
+                if (zeros == end - cur - 4)
+                {
+                    zeros += countTrailingZeros (lower);
+                }
+            }
+
+            while (high >= 100)
+            {
+                cur -= 2;
+                __builtin_memcpy (cur, &digitPairs[(high % 100) * 2], 2);
+                if (zeros == end - cur - 2)
+                {
+                    zeros += pairZeros[high % 100];
+                }
+                high /= 100;
+            }
+
+            if (high >= 10)
+            {
+                cur -= 2;
+                __builtin_memcpy (cur, &digitPairs[high * 2], 2);
+                if (zeros == end - cur - 2)
+                {
+                    zeros += pairZeros[high];
+                }
+            }
+            else
+            {
+                *--cur = static_cast<char> ('0' + high);
+            }
+
+            return zeros;
+        }
     }
 }
 

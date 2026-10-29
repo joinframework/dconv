@@ -12,9 +12,9 @@
 
 **dconv** is a header-only C++20 library for printing and parsing floating point numbers.
 
-Double to string conversion uses the **Grisu2** algorithm by default, described by **Florian Loitsch** in its publication [Printing Floating-Point Numbers Quickly and Accurately with Integers](https://florian.loitsch.com/publications).
+Double to string conversion uses the **Schubfach** algorithm by default, described by **Raffaello Giulietti** in its publication *The Schubfach way to render doubles*. It always prints the shortest representation that reads back to the same double, and the closest one when several are possible.
 
-The **Grisu** and **Grisu3** algorithms from the same publication are also available. Grisu prints up to 18 digits without looking for the shortest output, Grisu2 prints the shortest output for about 99.9% of the doubles, and Grisu3 detects the remaining cases and falls back to `std::to_chars`.
+The **Grisu**, **Grisu2** and **Grisu3** algorithms, described by **Florian Loitsch** in [Printing Floating-Point Numbers Quickly and Accurately with Integers](https://florian.loitsch.com/publications), are also available. Grisu prints up to 18 digits without looking for the shortest output, Grisu2 prints the shortest output for about 99.9% of the doubles, and Grisu3 detects the remaining cases and falls back to `std::to_chars`.
 
 String to double conversion uses the **Eisel-Lemire** algorithm on the first 19 significant digits. Longer mantissas are bracketed between two Eisel-Lemire results; only when they disagree is the number rebuilt from the digits already read and passed to strtod. A stream is read once and never rewound; a buffer is only read again for mantissas longer than 19 digits.
 
@@ -85,6 +85,7 @@ char* end = dconv::grisu3::dtoa (value, -2.22507e-308);
 
 | Header | Function |
 | :--- | :--- |
+| `dconv/schubfach.hpp` | `dconv::schubfach::dtoa` |
 | `dconv/grisu3.hpp` | `dconv::grisu3::dtoa` |
 | `dconv/grisu2.hpp` | `dconv::grisu2::dtoa` |
 | `dconv/grisu.hpp` | `dconv::grisu::dtoa` |

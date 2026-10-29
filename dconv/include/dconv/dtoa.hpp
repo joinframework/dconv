@@ -26,6 +26,7 @@
 #define __DCONV_DTOA_HPP__
 
 // dconv.
+#include <dconv/schubfach.hpp>
 #include <dconv/grisu3.hpp>
 
 namespace dconv
@@ -38,7 +39,7 @@ namespace dconv
      */
     inline char* dtoa (char* buffer, double value) noexcept
     {
-        return grisu2::dtoa (buffer, value);
+        return schubfach::dtoa (buffer, value);
     }
 }
 
