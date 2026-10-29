@@ -74,14 +74,16 @@ namespace dconv
         }
     };
 
+    /// conversion error category instance.
+    inline const ErrorCategory errorCategoryInstance;
+
     /**
      * @brief get error category.
      * @return the created std::error_category object.
      */
     inline const std::error_category& errorCategory () noexcept
     {
-        static ErrorCategory instance;
-        return instance;
+        return errorCategoryInstance;
     }
 
     /**
@@ -109,7 +111,7 @@ namespace std
 {
     /// conversion error code specialization.
     template <>
-    struct is_error_condition_enum<dconv::Errc> : public true_type
+    struct is_error_code_enum<dconv::Errc> : public true_type
     {
     };
 }

@@ -359,7 +359,7 @@ namespace dconv
             uint64_t significand;
             int64_t exponent;
             bool negative;
-            std::error_code ec;
+            std::error_code ec (0, errorCategory ());
 
             if (atod (probe, value, significand, exponent, negative, ec) == 0)
             {
