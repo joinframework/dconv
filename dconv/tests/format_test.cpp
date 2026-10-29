@@ -116,6 +116,57 @@ TEST (format, prettify)
 }
 
 /**
+ * @brief format test.
+ */
+TEST (format, format)
+{
+    char buffer[32] = {};
+    char* end = nullptr;
+
+    end = dconv::details::format (buffer, 12345u, dconv::details::countDigits (12345u), 0);
+    EXPECT_EQ (std::string (buffer, end), "12345.0");
+
+    end = dconv::details::format (buffer, 12345u, dconv::details::countDigits (12345u), 2);
+    EXPECT_EQ (std::string (buffer, end), "1234500.0");
+
+    end = dconv::details::format (buffer, 12345u, dconv::details::countDigits (12345u), -2);
+    EXPECT_EQ (std::string (buffer, end), "123.45");
+
+    end = dconv::details::format (buffer, 12345u, dconv::details::countDigits (12345u), -5);
+    EXPECT_EQ (std::string (buffer, end), "0.12345");
+
+    end = dconv::details::format (buffer, 12345u, dconv::details::countDigits (12345u), -7);
+    EXPECT_EQ (std::string (buffer, end), "0.0012345");
+
+    end = dconv::details::format (buffer, 12345u, dconv::details::countDigits (12345u), -11);
+    EXPECT_EQ (std::string (buffer, end), "1.2345e-7");
+
+    end = dconv::details::format (buffer, 12345u, dconv::details::countDigits (12345u), 17);
+    EXPECT_EQ (std::string (buffer, end), "1.2345e21");
+
+    end = dconv::details::format (buffer, 1u, dconv::details::countDigits (1u), -7);
+    EXPECT_EQ (std::string (buffer, end), "1e-7");
+
+    end = dconv::details::format (buffer, 1u, dconv::details::countDigits (1u), 30);
+    EXPECT_EQ (std::string (buffer, end), "1e30");
+
+    end = dconv::details::format (buffer, 1000u, dconv::details::countDigits (1000u), 0);
+    EXPECT_EQ (std::string (buffer, end), "1000.0");
+
+    end = dconv::details::format (buffer, 1230000000000000u, dconv::details::countDigits (1230000000000000u), -21);
+    EXPECT_EQ (std::string (buffer, end), "0.00000123");
+
+    end = dconv::details::format (buffer, 1230000000000000u, dconv::details::countDigits (1230000000000000u), -30);
+    EXPECT_EQ (std::string (buffer, end), "1.23e-15");
+
+    end = dconv::details::format (buffer, 1000000000000000u, dconv::details::countDigits (1000000000000000u), 10);
+    EXPECT_EQ (std::string (buffer, end), "1e25");
+
+    end = dconv::details::format (buffer, 1234567890123450u, dconv::details::countDigits (1234567890123450u), -10);
+    EXPECT_EQ (std::string (buffer, end), "123456.789012345");
+}
+
+/**
  * @brief main function.
  */
 int main (int argc, char** argv)

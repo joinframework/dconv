@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.22.1)
 set(PUBLIC_HEADERS
     include/dconv/error.hpp
     include/dconv/probe.hpp
+    include/dconv/power.hpp
     include/dconv/eisellemirepow.hpp
     include/dconv/eisellemire.hpp
     include/dconv/atod.hpp
@@ -13,6 +14,8 @@ set(PUBLIC_HEADERS
     include/dconv/grisu.hpp
     include/dconv/grisu2.hpp
     include/dconv/grisu3.hpp
+    include/dconv/schubfachpow.hpp
+    include/dconv/schubfach.hpp
     include/dconv/dtoa.hpp
 )
 

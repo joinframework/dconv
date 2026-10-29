@@ -41,34 +41,6 @@ namespace dconv
     namespace eisellemire
     {
         /**
-         * @brief multiply two 64 bits unsigned integers.
-         * @param a multiplicand.
-         * @param b multiplier.
-         * @param high high 64 bits of the 128-bit result.
-         * @param low low 64 bits of the 128-bit result.
-         */
-        inline void umul128 (uint64_t a, uint64_t b, uint64_t& high, uint64_t& low) noexcept
-        {
-#if defined(__SIZEOF_INT128__)
-            __uint128_t p = static_cast<__uint128_t> (a) * b;
-
-            high = static_cast<uint64_t> (p >> 64);
-            low = static_cast<uint64_t> (p);
-#else
-            uint64_t b_lo = static_cast<uint32_t> (b);
-            uint64_t b_hi = b >> 32;
-            uint64_t p0 = (a & 0xFFFFFFFF) * b_lo;
-            uint64_t p1 = (a >> 32) * b_lo;
-            uint64_t p2 = (a & 0xFFFFFFFF) * b_hi;
-            uint64_t p3 = (a >> 32) * b_hi;
-            uint64_t carry = (p0 >> 32) + (p1 & 0xFFFFFFFF) + (p2 & 0xFFFFFFFF);
-
-            low = (carry << 32) | (p0 & 0xFFFFFFFF);
-            high = (carry >> 32) + (p1 >> 32) + (p2 >> 32) + p3;
-#endif
-        }
-
-        /**
          * @brief convert double using fast path.
          * @param significand significand digits (at most 19).
          * @param exponent exponent.
@@ -110,11 +82,11 @@ namespace dconv
 
             const details::Power& power = details::eisellemirepow[exponent + 342];
             uint64_t high, low;
-            umul128 (power.hi, significand, high, low);
+            details::umul128 (power.hi, significand, high, low);
             if ((high & 0x1FF) == 0x1FF)
             {
                 uint64_t secondHigh, secondLow;
-                umul128 (power.lo, significand, secondHigh, secondLow);
+                details::umul128 (power.lo, significand, secondHigh, secondLow);
                 low += secondHigh;
                 high += (secondHigh > low);
             }
