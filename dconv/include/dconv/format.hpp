@@ -154,7 +154,7 @@ namespace dconv
                 return writeExponent (&buffer[position + 1], kk - 1);
             }
 
-            if ((length <= kk) && (kk <= 21))
+            if (length <= kk)
             {
                 writeDigits (buffer, digits, length);
                 for (int i = length; i < kk; ++i)
@@ -165,7 +165,7 @@ namespace dconv
                 buffer[kk + 1] = '0';
                 return &buffer[kk + 2];
             }
-            else if ((0 < kk) && (kk <= 21))
+            else if (0 < kk)
             {
                 length -= writeDigits (buffer + 1, digits, length);
                 for (int i = 0; i < kk; ++i)
