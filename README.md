@@ -14,7 +14,7 @@
 
 Double to string conversion is done using the **Grisu2** algorithm, described by **Florian Loitsch** in its publication [Printing Floating-Point Numbers Quickly and Accurately with Integers](https://florian.loitsch.com/publications).
 
-String to double conversion uses the **Eisel-Lemire** algorithm, without fallback for mantissas of up to 19 digits; longer mantissas fall back to strtod.
+String to double conversion uses the **Eisel-Lemire** algorithm on the first 19 significant digits. Longer mantissas are bracketed between two Eisel-Lemire results; only when they disagree is the number rebuilt from the digits already read and passed to strtod. A stream is read once and never rewound; a buffer is only read again for mantissas longer than 19 digits.
 
 Any help to improve speed, accuracy or code quality is welcome.
 
@@ -81,8 +81,25 @@ double value;
 const char* end = dconv::atod ("-2.22507e-308", value);
 ```
 
+`atod` also accepts a `std::string` or a `std::string_view`, and a `(first, length)` or `(first, last)` range.
+A temporary `std::string` is rejected, since the returned position would point into it.
+
+It can also read from a stream, without buffering it:
+
+```cpp
+#include <dconv/atod.hpp>
+#include <sstream>
+
+double value;
+std::istringstream in ("-2.22507e-308");
+bool ok = dconv::atod (in, value);
+```
+
 `dtoa` needs a buffer of at least 25 bytes and returns the end of the written characters.
 `atod` returns the end of the parsed characters, or `nullptr` on failure.
+The probe and stream overloads return `false` on failure and stop right after the number on success.
+They read the stream buffer directly: whitespaces are not skipped, the stream state is left unchanged and the characters read are consumed even on failure.
+`atod` never changes `errno`.
 
 ## License
 

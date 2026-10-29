@@ -30,48 +30,22 @@
 #include <dconv/probe.hpp>
 
 // C++.
+#include <type_traits>
+#include <string_view>
+#include <charconv>
 #include <string>
 #include <limits>
-#include <memory>
 
 // C.
-#include <locale.h>
 #include <cstring>
 #include <cstdint>
 #include <cstdlib>
+#include <cerrno>
 
 namespace dconv
 {
     namespace details
     {
-        struct LocaleDelete
-        {
-            constexpr LocaleDelete () noexcept = default;
-
-            void operator() (locale_t loc) noexcept
-            {
-                freelocale (loc);
-            }
-        };
-
-        using LocalePtr = std::unique_ptr<std::remove_pointer_t<locale_t>, LocaleDelete>;
-
-        /**
-         * @brief convert double using strtod.
-         * @param first first character of the number.
-         * @param last position past the last character of the number.
-         * @param value converted value.
-         * @return true on success, false otherwise.
-         */
-        inline bool strtodSlow (const char* first, const char* last, double& value)
-        {
-            static LocalePtr locale (newlocale (LC_ALL_MASK, "C", nullptr));
-            std::string num (first, last);
-            char* end = nullptr;
-            value = strtod_l (num.c_str (), &end, locale.get ());
-            return (end && (*end == '\0'));
-        }
-
         /**
          * @brief multiply two 64 bits unsigned integers.
          * @param a multiplicand.
@@ -205,24 +179,176 @@ namespace dconv
             return (c == '+') || (c == '-');
         }
 
-        inline const char* atod (StringProbe& probe, double& value)
+        /**
+         * @brief read an optional exponent.
+         * @param probe probe to read from.
+         * @param exponent read exponent.
+         * @return true on success, false otherwise.
+         */
+        template <typename Probe>
+        inline bool readExponent (Probe& probe, int64_t& exponent)
         {
-            const char* beg = probe.tell ();
+            exponent = 0;
+            if (!probe.getIf ('e') && !probe.getIf ('E'))
+            {
+                return true;
+            }
+
+            bool negExp = false;
+            if (isSign (probe.peek ()))
+            {
+                negExp = (probe.get () == '-');
+            }
+
+            if (DCONV_UNLIKELY (!isDigit (probe.peek ())))
+            {
+                return false;
+            }
+
+            exponent = probe.get () - '0';
+
+            while (isDigit (probe.peek ()))
+            {
+                int digit = probe.get () - '0';
+
+                if (DCONV_LIKELY (exponent <= ((std::numeric_limits<int>::max () - digit) / 10)))
+                {
+                    exponent = (exponent * 10) + digit;
+                }
+            }
+
+            if (negExp)
+            {
+                exponent = -exponent;
+            }
+
+            return true;
+        }
+
+        /**
+         * @brief continue a conversion whose significand has more than 19 digits.
+         * @param probe probe to read from, positioned on the first digit beyond the significand.
+         * @param negative sign of the number.
+         * @param significand first 19 significant digits.
+         * @param scale power of ten applied to the significand so far.
+         * @param fraction true if the reading stopped in the fractional part.
+         * @param value converted value.
+         * @return true on success, false otherwise.
+         */
+        template <typename Probe>
+        __attribute__ ((cold, noinline)) bool atodLong (Probe& probe, bool negative, uint64_t significand,
+                                                        int64_t scale, bool fraction, double& value)
+        {
+            static constexpr int maxDigits = 800;
+            char text[maxDigits + 32];
+            char* const tail = std::to_chars (text, text + 20, significand).ptr;
+            char* cur = tail;
+            bool truncated = false;
+
+            if (!fraction)
+            {
+                while (isDigit (probe.peek ()))
+                {
+                    char digit = static_cast<char> (probe.get ());
+                    if (cur < text + maxDigits)
+                    {
+                        *cur++ = digit;
+                    }
+                    else
+                    {
+                        truncated |= (digit != '0');
+                    }
+                    ++scale;
+                }
+
+                if (probe.getIf ('.'))
+                {
+                    if (DCONV_UNLIKELY (!isDigit (probe.peek ())))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            while (isDigit (probe.peek ()))
+            {
+                char digit = static_cast<char> (probe.get ());
+                if (cur < text + maxDigits)
+                {
+                    *cur++ = digit;
+                }
+                else
+                {
+                    truncated |= (digit != '0');
+                }
+            }
+
+            int64_t exponent = 0;
+            if (!readExponent (probe, exponent))
+            {
+                return false;
+            }
+
+            value = strtodFast (significand, exponent + scale);
+            if (value != strtodFast (significand + 1, exponent + scale))
+            {
+                if (truncated)
+                {
+                    *cur++ = '1';
+                }
+                const int64_t power = exponent + scale - (cur - tail);
+                *cur++ = 'e';
+                *std::to_chars (cur, cur + 21, power).ptr = '\0';
+                int error = errno;
+                value = std::strtod (text, nullptr);
+                errno = error;
+            }
+
+            value = negative ? -value : value;
+            return true;
+        }
+
+        /**
+         * @brief string to double conversion.
+         * @param probe probe to read from.
+         * @param value converted value.
+         * @return true on success, false otherwise.
+         */
+        template <typename Probe, bool Rewind = std::is_same_v<Probe, StringProbe>>
+        inline bool atod (Probe& probe, double& value)
+        {
+            const char* beg = nullptr;
+            if constexpr (Rewind)
+            {
+                beg = probe.tell ();
+            }
 
             bool negative = probe.getIf ('-');
-            uint64_t digits = 0;
             uint64_t u = 0;
+            size_t digits = 0;
+            int64_t scale = 0;
 
             if (probe.getIf ('0'))
             {
                 if (DCONV_UNLIKELY (isDigit (probe.peek ())))
                 {
-                    return nullptr;
+                    return false;
                 }
             }
             else if (DCONV_LIKELY (isDigit (probe.peek ())))
             {
-                digits = probe.readDigits (u);
+                if constexpr (Rewind)
+                {
+                    digits = probe.readDigits (u);
+                }
+                else
+                {
+                    digits = probe.readDigits (u, 19);
+                    if (DCONV_UNLIKELY (isDigit (probe.peek ())))
+                    {
+                        return atodLong (probe, negative, u, scale, false, value);
+                    }
+                }
             }
             else if (probe.getIfNoCase ('i') && probe.getIfNoCase ('n') && probe.getIfNoCase ('f'))
             {
@@ -231,90 +357,103 @@ namespace dconv
                     if (!(probe.getIfNoCase ('n') && probe.getIfNoCase ('i') && probe.getIfNoCase ('t') &&
                           probe.getIfNoCase ('y')))
                     {
-                        return nullptr;
+                        return false;
                     }
                 }
                 value = negative ? -std::numeric_limits<double>::infinity () : std::numeric_limits<double>::infinity ();
-                return probe.tell ();
+                return true;
             }
             else if (probe.getIfNoCase ('n') && probe.getIfNoCase ('a') && probe.getIfNoCase ('n'))
             {
                 value =
                     negative ? -std::numeric_limits<double>::quiet_NaN () : std::numeric_limits<double>::quiet_NaN ();
-                return probe.tell ();
+                return true;
             }
             else
             {
-                return nullptr;
+                return false;
             }
 
-            int64_t frac = 0;
             if (probe.getIf ('.'))
             {
                 if (DCONV_UNLIKELY (!isDigit (probe.peek ())))
                 {
-                    return nullptr;
+                    return false;
                 }
 
                 if (digits == 0)
                 {
                     while (probe.getIf ('0'))
                     {
-                        --frac;
+                        --scale;
                     }
                 }
 
-                size_t count = probe.readDigits (u);
+                size_t count = probe.readDigits (u, Rewind ? std::numeric_limits<size_t>::max () : 19 - digits);
                 digits += count;
-                frac -= static_cast<int64_t> (count);
+                scale -= static_cast<int64_t> (count);
+                if constexpr (!Rewind)
+                {
+                    if (DCONV_UNLIKELY (isDigit (probe.peek ())))
+                    {
+                        return atodLong (probe, negative, u, scale, true, value);
+                    }
+                }
+            }
+
+            if constexpr (Rewind)
+            {
+                if (DCONV_UNLIKELY (digits > 19))
+                {
+                    probe.seek (beg);
+                    return atod<Probe, false> (probe, value);
+                }
             }
 
             int64_t exponent = 0;
-            if (probe.getIf ('e') || probe.getIf ('E'))
+            if (!readExponent (probe, exponent))
             {
-                bool negExp = false;
-                if (isSign (probe.peek ()))
-                {
-                    negExp = (probe.get () == '-');
-                }
-
-                if (DCONV_UNLIKELY (!isDigit (probe.peek ())))
-                {
-                    return nullptr;
-                }
-
-                exponent = probe.get () - '0';
-
-                while (isDigit (probe.peek ()))
-                {
-                    int digit = probe.get () - '0';
-
-                    if (DCONV_LIKELY (exponent <= ((std::numeric_limits<int>::max () - digit) / 10)))
-                    {
-                        exponent = (exponent * 10) + digit;
-                    }
-                }
-
-                if (negExp)
-                {
-                    exponent = -exponent;
-                }
+                return false;
             }
 
-            if (DCONV_LIKELY (digits <= 19))
-            {
-                value = strtodFast (u, exponent + frac);
-                value = negative ? -value : value;
-                return probe.tell ();
-            }
-
-            if (strtodSlow (beg, probe.tell (), value))
-            {
-                return probe.tell ();
-            }
-
-            return nullptr;  // LCOV_EXCL_LINE
+            value = strtodFast (u, exponent + scale);
+            value = negative ? -value : value;
+            return true;
         }
+    }
+
+    /**
+     * @brief stream to double conversion.
+     * @param probe probe to read from.
+     * @param value converted value.
+     * @return true on success, false otherwise.
+     */
+    inline bool atod (StreamProbe& probe, double& value)
+    {
+        return details::atod (probe, value);
+    }
+
+    /**
+     * @brief stream to double conversion.
+     * @param in stream to read from.
+     * @param value converted value.
+     * @return true on success, false otherwise.
+     */
+    inline bool atod (std::istream& in, double& value)
+    {
+        StreamProbe probe (in);
+        return details::atod (probe, value);
+    }
+
+    /**
+     * @brief string to double conversion.
+     * @param probe probe to read from.
+     * @param value converted value.
+     * @return true on success, false otherwise.
+     */
+    inline bool atod (StringProbe& probe, double& value)
+    {
+        return details::atod (probe, value);
     }
 
     /**
@@ -326,7 +465,7 @@ namespace dconv
     inline const char* atod (const char* str, double& value)
     {
         StringProbe probe (str);
-        return details::atod (probe, value);
+        return details::atod (probe, value) ? probe.tell () : nullptr;
     }
 
     /**
@@ -339,7 +478,7 @@ namespace dconv
     inline const char* atod (const char* str, size_t length, double& value)
     {
         StringProbe probe (str, length);
-        return details::atod (probe, value);
+        return details::atod (probe, value) ? probe.tell () : nullptr;
     }
 
     /**
@@ -352,8 +491,28 @@ namespace dconv
     inline const char* atod (const char* first, const char* last, double& value)
     {
         StringProbe probe (first, last);
-        return details::atod (probe, value);
+        return details::atod (probe, value) ? probe.tell () : nullptr;
     }
+
+    /**
+     * @brief string to double conversion.
+     * @param str string to parse.
+     * @param value converted value.
+     * @return end position on success, nullptr on failure.
+     */
+    inline const char* atod (std::string_view str, double& value)
+    {
+        StringProbe probe (str.data (), str.size ());
+        return details::atod (probe, value) ? probe.tell () : nullptr;
+    }
+
+    /**
+     * @brief string to double conversion from a temporary string.
+     * @param str temporary string.
+     * @param value converted value.
+     * @return end position on success, nullptr on failure.
+     */
+    const char* atod (std::string&& str, double& value) = delete;
 }
 
 #endif

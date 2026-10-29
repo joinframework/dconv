@@ -29,9 +29,13 @@
 #include <gtest/gtest.h>
 
 // C++.
+#include <string_view>
+#include <sstream>
+#include <string>
 #include <limits>
 
 // C.
+#include <cerrno>
 #include <cmath>
 
 /**
@@ -377,6 +381,14 @@ TEST (atod, atod)
     EXPECT_EQ (dconv::atod (str, str + 5, value), str + 5);
     EXPECT_EQ (value, 1500.0);
 
+    std::string_view view (str, 3);
+    EXPECT_EQ (dconv::atod (view, value), str + 3);
+    EXPECT_EQ (value, 1.5);
+
+    std::string string (str);
+    EXPECT_EQ (dconv::atod (string, value), string.data () + 5);
+    EXPECT_EQ (value, 1500.0);
+
     str = "1234567890123456789012345678901234567890";
     EXPECT_EQ (dconv::atod (str, 25, value), str + 25);
     EXPECT_EQ (value, 1234567890123456789012345.0);
@@ -394,13 +406,68 @@ TEST (atod, atod)
     ASSERT_NE (dconv::atod ("1.7976931348623158079372897140530341506e308", value), nullptr);
     EXPECT_EQ (value, std::numeric_limits<double>::max ());
 
+    errno = 0;
     ASSERT_NE (dconv::atod ("-2.47032822920623272088284396434110686e-324", value), nullptr);
     EXPECT_EQ (value, 0.0);
     EXPECT_TRUE (std::signbit (value));
+    EXPECT_EQ (errno, 0);
+
+    dconv::StringProbe stringProbe ("1.5x");
+    ASSERT_TRUE (dconv::atod (stringProbe, value));
+    EXPECT_EQ (value, 1.5);
+    EXPECT_EQ (stringProbe.peek (), 'x');
+
+    std::istringstream stream ("-1.25e3x");
+    dconv::StreamProbe probe (stream);
+    ASSERT_TRUE (dconv::atod (probe, value));
+    EXPECT_EQ (value, -1250.0);
+    EXPECT_EQ (probe.peek (), 'x');
+
+    std::istringstream invalid ("-x");
+    dconv::StreamProbe invalidProbe (invalid);
+    ASSERT_FALSE (dconv::atod (invalidProbe, value));
+
+    std::istringstream longInvalid ("12345678901234567890.x");
+    dconv::StreamProbe longInvalidProbe (longInvalid);
+    ASSERT_FALSE (dconv::atod (longInvalidProbe, value));
+
+    std::istringstream longExponent ("12345678901234567890e+x");
+    ASSERT_FALSE (dconv::atod (longExponent, value));
+
+    std::istringstream longFraction ("-9007199254740993.0000000000000000001x");
+    ASSERT_TRUE (dconv::atod (longFraction, value));
+    EXPECT_EQ (value, -9007199254740994.0);
+    EXPECT_EQ (longFraction.peek (), 'x');
+
+    std::istringstream longTruncated ("9007199254740993" + std::string (900, '0') + "1e-901x");
+    ASSERT_TRUE (dconv::atod (longTruncated, value));
+    EXPECT_EQ (value, 9007199254740994.0);
+    EXPECT_EQ (longTruncated.peek (), 'x');
+
+    std::istringstream in ("2.5e-1 ");
+    ASSERT_TRUE (dconv::atod (in, value));
+    EXPECT_EQ (value, 0.25);
+    EXPECT_EQ (in.peek (), ' ');
 
     EXPECT_EQ (dconv::atod ("12345678901234567890.", value), nullptr);
     EXPECT_EQ (dconv::atod ("12345678901234567890e", value), nullptr);
     EXPECT_EQ (dconv::atod ("0.12345678901234567890e+", value), nullptr);
+
+    std::string longest = "9007199254740993." + std::string (900, '0');
+    ASSERT_NE (dconv::atod (longest.c_str (), value), nullptr);
+    EXPECT_EQ (value, 9007199254740992.0);
+
+    longest += "1";
+    ASSERT_NE (dconv::atod (longest.c_str (), value), nullptr);
+    EXPECT_EQ (value, 9007199254740994.0);
+
+    longest = "9007199254740993" + std::string (900, '0') + "e-900";
+    ASSERT_NE (dconv::atod (longest.c_str (), value), nullptr);
+    EXPECT_EQ (value, 9007199254740992.0);
+
+    longest = "9007199254740993" + std::string (900, '0') + "1e-901";
+    ASSERT_NE (dconv::atod (longest.c_str (), value), nullptr);
+    EXPECT_EQ (value, 9007199254740994.0);
 
     str = "infx";
     EXPECT_EQ (dconv::atod (str, value), str + 3);
