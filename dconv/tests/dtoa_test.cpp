@@ -29,33 +29,6 @@
 #include <gtest/gtest.h>
 
 /**
- * @brief digitsCount test.
- */
-TEST (dtoa, digitsCount)
-{
-    EXPECT_EQ (dconv::details::digitsCount (0), 1);
-    EXPECT_EQ (dconv::details::digitsCount (9), 1);
-    EXPECT_EQ (dconv::details::digitsCount (10), 2);
-    EXPECT_EQ (dconv::details::digitsCount (99), 2);
-    EXPECT_EQ (dconv::details::digitsCount (100), 3);
-    EXPECT_EQ (dconv::details::digitsCount (999), 3);
-    EXPECT_EQ (dconv::details::digitsCount (1000), 4);
-    EXPECT_EQ (dconv::details::digitsCount (9999), 4);
-    EXPECT_EQ (dconv::details::digitsCount (10000), 5);
-    EXPECT_EQ (dconv::details::digitsCount (99999), 5);
-    EXPECT_EQ (dconv::details::digitsCount (100000), 6);
-    EXPECT_EQ (dconv::details::digitsCount (999999), 6);
-    EXPECT_EQ (dconv::details::digitsCount (1000000), 7);
-    EXPECT_EQ (dconv::details::digitsCount (9999999), 7);
-    EXPECT_EQ (dconv::details::digitsCount (10000000), 8);
-    EXPECT_EQ (dconv::details::digitsCount (99999999), 8);
-    EXPECT_EQ (dconv::details::digitsCount (100000000), 9);
-    EXPECT_EQ (dconv::details::digitsCount (999999999), 9);
-    EXPECT_EQ (dconv::details::digitsCount (1000000000), 10);
-    EXPECT_EQ (dconv::details::digitsCount (UINT32_MAX), 10);
-}
-
-/**
  * @brief dtoa test.
  */
 TEST (dtoa, dtoa)

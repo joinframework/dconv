@@ -41,7 +41,8 @@
 // =========================================================================
 void version ()
 {
-    std::cout << "powgen version " << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_PATCH << std::endl;
+    std::cout << "eisellemirepowgen version " << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_PATCH
+              << std::endl;
 }
 
 // =========================================================================
@@ -51,7 +52,7 @@ void version ()
 void usage ()
 {
     std::cout << "Usage" << std::endl;
-    std::cout << "  powgen [options]" << std::endl;
+    std::cout << "  eisellemirepowgen [options]" << std::endl;
     std::cout << std::endl;
     std::cout << "Options" << std::endl;
     std::cout << "  -h                show available options" << std::endl;

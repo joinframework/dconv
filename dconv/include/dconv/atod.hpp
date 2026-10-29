@@ -26,7 +26,8 @@
 #define __DCONV_ATOD_HPP__
 
 // dconv.
-#include <dconv/atodpow.hpp>
+#include <dconv/eisellemire.hpp>
+#include <dconv/error.hpp>
 #include <dconv/probe.hpp>
 
 // C++.
@@ -46,129 +47,6 @@ namespace dconv
 {
     namespace details
     {
-        /**
-         * @brief multiply two 64 bits unsigned integers.
-         * @param a multiplicand.
-         * @param b multiplier.
-         * @param high high 64 bits of the 128-bit result.
-         * @param low low 64 bits of the 128-bit result.
-         */
-        inline void umul128 (uint64_t a, uint64_t b, uint64_t& high, uint64_t& low) noexcept
-        {
-#if defined(__SIZEOF_INT128__)
-            __uint128_t p = static_cast<__uint128_t> (a) * b;
-
-            high = static_cast<uint64_t> (p >> 64);
-            low = static_cast<uint64_t> (p);
-#else
-            uint64_t b_lo = static_cast<uint32_t> (b);
-            uint64_t b_hi = b >> 32;
-            uint64_t p0 = (a & 0xFFFFFFFF) * b_lo;
-            uint64_t p1 = (a >> 32) * b_lo;
-            uint64_t p2 = (a & 0xFFFFFFFF) * b_hi;
-            uint64_t p3 = (a >> 32) * b_hi;
-            uint64_t carry = (p0 >> 32) + (p1 & 0xFFFFFFFF) + (p2 & 0xFFFFFFFF);
-
-            low = (carry << 32) | (p0 & 0xFFFFFFFF);
-            high = (carry >> 32) + (p1 >> 32) + (p2 >> 32) + p3;
-#endif
-        }
-
-        /**
-         * @brief convert double using fast path.
-         * @param significand significand digits (at most 19).
-         * @param exponent exponent.
-         * @return converted value.
-         */
-        inline double strtodFast (uint64_t significand, int64_t exponent) noexcept
-        {
-            static constexpr double pow10[] = {1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10, 1e11,
-                                               1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22};
-
-            double value = static_cast<double> (significand);
-
-            if (DCONV_LIKELY ((exponent >= -22) && (exponent <= 22) && (value <= 9007199254740991.0)))
-            {
-                return (exponent < 0) ? (value / pow10[-exponent]) : (value * pow10[exponent]);
-            }
-
-            if (DCONV_UNLIKELY ((exponent > 22) && (exponent < (22 + 16))))
-            {
-                const double scaled = value * pow10[exponent - 22];
-                if (scaled <= 9007199254740991.0)
-                {
-                    return scaled * pow10[22];
-                }
-            }
-
-            if (DCONV_UNLIKELY (significand == 0 || exponent < -342))
-            {
-                return 0.0;
-            }
-
-            if (DCONV_UNLIKELY (exponent > 308))
-            {
-                return std::numeric_limits<double>::infinity ();
-            }
-
-            const int lz = __builtin_clzll (significand);
-            significand <<= lz;
-
-            const Power& power = atodpow[exponent + 342];
-            uint64_t high, low;
-            umul128 (power.hi, significand, high, low);
-            if ((high & 0x1FF) == 0x1FF)
-            {
-                uint64_t secondHigh, secondLow;
-                umul128 (power.lo, significand, secondHigh, secondLow);
-                low += secondHigh;
-                high += (secondHigh > low);
-            }
-
-            const int upperbit = static_cast<int> (high >> 63);
-            const int shift = upperbit + 9;
-            uint64_t mantissa = high >> shift;
-            int64_t power2 = (((152170 + 65536) * exponent) >> 16) + 63 + upperbit - lz + 1023;
-
-            if (DCONV_UNLIKELY (power2 <= 0))
-            {
-                if (-power2 + 1 >= 64)
-                {
-                    return 0.0;
-                }
-                mantissa >>= -power2 + 1;
-                mantissa += (mantissa & 1);
-                mantissa >>= 1;
-                power2 = (mantissa < (uint64_t (1) << 52)) ? 0 : 1;
-            }
-            else
-            {
-                if ((low <= 1) && (exponent >= -4) && (exponent <= 23) && ((mantissa & 3) == 1) &&
-                    ((mantissa << shift) == high))
-                {
-                    mantissa &= ~uint64_t (1);
-                }
-
-                mantissa += (mantissa & 1);
-                mantissa >>= 1;
-
-                if (DCONV_UNLIKELY (mantissa >= (uint64_t (2) << 52)))
-                {
-                    mantissa = uint64_t (1) << 52;
-                    ++power2;
-                }
-
-                if (DCONV_UNLIKELY (power2 >= 0x7FF))
-                {
-                    return std::numeric_limits<double>::infinity ();
-                }
-            }
-
-            const uint64_t bits = (static_cast<uint64_t> (power2) << 52) | (mantissa & ((uint64_t (1) << 52) - 1));
-            memcpy (&value, &bits, sizeof (double));
-            return value;
-        }
-
         inline constexpr bool isDigit (char c) noexcept
         {
             return static_cast<unsigned char> (c - '0') <= 9u;
@@ -230,20 +108,27 @@ namespace dconv
          * @param probe probe to read from, positioned on the first digit beyond the significand.
          * @param negative sign of the number.
          * @param significand first 19 significant digits.
-         * @param scale power of ten applied to the significand so far.
+         * @param scale power of ten applied to the significand, updated with the final exponent.
          * @param fraction true if the reading stopped in the fractional part.
          * @param value converted value.
+         * @param pending integer digit already read beyond the significand, or -1.
          * @return true on success, false otherwise.
          */
         template <typename Probe>
         __attribute__ ((cold, noinline)) bool atodLong (Probe& probe, bool negative, uint64_t significand,
-                                                        int64_t scale, bool fraction, double& value)
+                                                        int64_t& scale, bool fraction, double& value, int pending = -1)
         {
             static constexpr int maxDigits = 800;
             char text[maxDigits + 32];
             char* const tail = std::to_chars (text, text + 20, significand).ptr;
             char* cur = tail;
             bool truncated = false;
+
+            if (pending >= 0)
+            {
+                *cur++ = static_cast<char> ('0' + pending);
+                ++scale;
+            }
 
             if (!fraction)
             {
@@ -289,14 +174,15 @@ namespace dconv
                 return false;
             }
 
-            value = strtodFast (significand, exponent + scale);
-            if (value != strtodFast (significand + 1, exponent + scale))
+            scale += exponent;
+            value = eisellemire::compute (significand, scale);
+            if (value != eisellemire::compute (significand + 1, scale))
             {
                 if (truncated)
                 {
                     *cur++ = '1';
                 }
-                const int64_t power = exponent + scale - (cur - tail);
+                const int64_t power = scale - (cur - tail);
                 *cur++ = 'e';
                 *std::to_chars (cur, cur + 21, power).ptr = '\0';
                 int error = errno;
@@ -309,13 +195,18 @@ namespace dconv
         }
 
         /**
-         * @brief string to double conversion.
+         * @brief string to double conversion that stops on integers.
          * @param probe probe to read from.
          * @param value converted value.
-         * @return true on success, false otherwise.
+         * @param significand integer value when the error is NotDouble, first significant digits read otherwise.
+         * @param exponent decimal exponent read.
+         * @param negative sign read.
+         * @param ec error code set on failure.
+         * @return 0 on success, -1 on failure.
          */
         template <typename Probe, bool Rewind = std::is_same_v<Probe, StringProbe>>
-        inline bool atod (Probe& probe, double& value)
+        inline int atod (Probe& probe, double& value, uint64_t& significand, int64_t& exponent, bool& negative,
+                         std::error_code& ec)
         {
             const char* beg = nullptr;
             if constexpr (Rewind)
@@ -323,30 +214,45 @@ namespace dconv
                 beg = probe.tell ();
             }
 
-            bool negative = probe.getIf ('-');
-            uint64_t u = 0;
+            significand = 0;
+            exponent = 0;
+            negative = probe.getIf ('-');
             size_t digits = 0;
-            int64_t scale = 0;
 
             if (probe.getIf ('0'))
             {
                 if (DCONV_UNLIKELY (isDigit (probe.peek ())))
                 {
-                    return false;
+                    ec = make_error_code (Errc::InvalidNumber);
+                    return -1;
                 }
             }
             else if (DCONV_LIKELY (isDigit (probe.peek ())))
             {
                 if constexpr (Rewind)
                 {
-                    digits = probe.readDigits (u);
+                    digits = probe.readDigits (significand);
                 }
                 else
                 {
-                    digits = probe.readDigits (u, 19);
+                    digits = probe.readDigits (significand, 19);
                     if (DCONV_UNLIKELY (isDigit (probe.peek ())))
                     {
-                        return atodLong (probe, negative, u, scale, false, value);
+                        const int pending = probe.get () - '0';
+                        const int next = probe.peek ();
+                        if (!isDigit (next) && (next != '.') && (next != 'e') && (next != 'E') &&
+                            (significand <= (std::numeric_limits<uint64_t>::max () - pending) / 10))
+                        {
+                            significand = (significand * 10) + pending;
+                            ec = make_error_code (Errc::NotDouble);
+                            return -1;
+                        }
+                        if (!atodLong (probe, negative, significand, exponent, false, value, pending))
+                        {
+                            ec = make_error_code (Errc::InvalidNumber);
+                            return -1;
+                        }
+                        return 0;
                     }
                 }
             }
@@ -357,46 +263,57 @@ namespace dconv
                     if (!(probe.getIfNoCase ('n') && probe.getIfNoCase ('i') && probe.getIfNoCase ('t') &&
                           probe.getIfNoCase ('y')))
                     {
-                        return false;
+                        ec = make_error_code (Errc::InvalidNumber);
+                        return -1;
                     }
                 }
                 value = negative ? -std::numeric_limits<double>::infinity () : std::numeric_limits<double>::infinity ();
-                return true;
+                return 0;
             }
             else if (probe.getIfNoCase ('n') && probe.getIfNoCase ('a') && probe.getIfNoCase ('n'))
             {
                 value =
                     negative ? -std::numeric_limits<double>::quiet_NaN () : std::numeric_limits<double>::quiet_NaN ();
-                return true;
+                return 0;
             }
             else
             {
-                return false;
+                ec = make_error_code (Errc::InvalidNumber);
+                return -1;
             }
 
+            bool real = false;
             if (probe.getIf ('.'))
             {
+                real = true;
                 if (DCONV_UNLIKELY (!isDigit (probe.peek ())))
                 {
-                    return false;
+                    ec = make_error_code (Errc::InvalidNumber);
+                    return -1;
                 }
 
                 if (digits == 0)
                 {
                     while (probe.getIf ('0'))
                     {
-                        --scale;
+                        --exponent;
                     }
                 }
 
-                size_t count = probe.readDigits (u, Rewind ? std::numeric_limits<size_t>::max () : 19 - digits);
+                size_t count =
+                    probe.readDigits (significand, Rewind ? std::numeric_limits<size_t>::max () : 19 - digits);
                 digits += count;
-                scale -= static_cast<int64_t> (count);
+                exponent -= static_cast<int64_t> (count);
                 if constexpr (!Rewind)
                 {
                     if (DCONV_UNLIKELY (isDigit (probe.peek ())))
                     {
-                        return atodLong (probe, negative, u, scale, true, value);
+                        if (!atodLong (probe, negative, significand, exponent, true, value))
+                        {
+                            ec = make_error_code (Errc::InvalidNumber);
+                            return -1;
+                        }
+                        return 0;
                     }
                 }
             }
@@ -406,20 +323,74 @@ namespace dconv
                 if (DCONV_UNLIKELY (digits > 19))
                 {
                     probe.seek (beg);
-                    return atod<Probe, false> (probe, value);
+                    return atod<Probe, false> (probe, value, significand, exponent, negative, ec);
                 }
             }
 
-            int64_t exponent = 0;
-            if (!readExponent (probe, exponent))
+            real |= (probe.peek () == 'e') || (probe.peek () == 'E');
+            int64_t power = 0;
+            if (!readExponent (probe, power))
             {
-                return false;
+                ec = make_error_code (Errc::InvalidNumber);
+                return -1;
             }
 
-            value = strtodFast (u, exponent + scale);
+            if (!real)
+            {
+                ec = make_error_code (Errc::NotDouble);
+                return -1;
+            }
+
+            exponent += power;
+            value = eisellemire::compute (significand, exponent);
             value = negative ? -value : value;
-            return true;
+            return 0;
         }
+
+        /**
+         * @brief string to double conversion.
+         * @param probe probe to read from.
+         * @param value converted value.
+         * @return true on success, false otherwise.
+         */
+        template <typename Probe>
+        inline bool atod (Probe& probe, double& value)
+        {
+            uint64_t significand;
+            int64_t exponent;
+            bool negative;
+            std::error_code ec;
+
+            if (atod (probe, value, significand, exponent, negative, ec) == 0)
+            {
+                return true;
+            }
+
+            if (ec == Errc::NotDouble)
+            {
+                value = static_cast<double> (significand);
+                value = negative ? -value : value;
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    /**
+     * @brief stream to double conversion that stops on integers.
+     * @param probe probe to read from.
+     * @param value converted value.
+     * @param significand integer value when the error is NotDouble, first significant digits read otherwise.
+     * @param exponent decimal exponent read.
+     * @param negative sign read.
+     * @param ec error code set on failure.
+     * @return 0 on success, -1 on failure.
+     */
+    inline int atod (StreamProbe& probe, double& value, uint64_t& significand, int64_t& exponent, bool& negative,
+                     std::error_code& ec)
+    {
+        return details::atod (probe, value, significand, exponent, negative, ec);
     }
 
     /**
@@ -443,6 +414,22 @@ namespace dconv
     {
         StreamProbe probe (in);
         return details::atod (probe, value);
+    }
+
+    /**
+     * @brief string to double conversion that stops on integers.
+     * @param probe probe to read from.
+     * @param value converted value.
+     * @param significand integer value when the error is NotDouble, first significant digits read otherwise.
+     * @param exponent decimal exponent read.
+     * @param negative sign read.
+     * @param ec error code set on failure.
+     * @return 0 on success, -1 on failure.
+     */
+    inline int atod (StringProbe& probe, double& value, uint64_t& significand, int64_t& exponent, bool& negative,
+                     std::error_code& ec)
+    {
+        return details::atod (probe, value, significand, exponent, negative, ec);
     }
 
     /**

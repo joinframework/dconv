@@ -1,6 +1,6 @@
-# powgen
+# eisellemirepowgen
 
-**powgen** is a command-line tool that generates **lookup
+**eisellemirepowgen** is a command-line tool that generates **lookup
 tables** of high-precision powers of 5.
 
 The tool outputs a fully self-contained C++ header containing:
@@ -24,7 +24,7 @@ Generate powers for exponents −200 through +200 and write them to
 `power.hpp`:
 
 ``` bash
-powgen -l -200 -u 200 > power.hpp
+eisellemirepowgen -l -200 -u 200 > power.hpp
 ```
 
 The generated header will contain definitions like:

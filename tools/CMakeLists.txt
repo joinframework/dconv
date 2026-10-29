@@ -1,3 +1,4 @@
 cmake_minimum_required(VERSION 3.22.1)
 
-add_subdirectory(powgen)
+add_subdirectory(eisellemirepowgen)
+add_subdirectory(grisupowgen)
