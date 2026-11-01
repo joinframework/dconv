@@ -189,74 +189,16 @@ TEST (StringProbe, read)
 }
 
 /**
- * @brief readUntilEscaped test.
+ * @brief end test.
  */
-TEST (StringProbe, readUntilEscaped)
+TEST (StringProbe, end)
 {
-    StringProbe probe ("hello\"world");
-    std::string out;
+    const char* text = "hello";
+    StringProbe probe (text);
 
-    probe.readUntilEscaped (out);
-    ASSERT_EQ (out, "hello");
-    ASSERT_EQ (probe.peek (), '"');
-
-    probe = StringProbe ("hello wonderful world\\");
-    out.clear ();
-    probe.readUntilEscaped (out);
-    ASSERT_EQ (out, "hello wonderful world");
-    ASSERT_EQ (probe.peek (), '\\');
-
-    probe = StringProbe ("abc");
-    out.clear ();
-    probe.readUntilEscaped (out);
-    ASSERT_EQ (out, "abc");
-    ASSERT_EQ (probe.peek (), std::char_traits<char>::eof ());
-}
-
-/**
- * @brief skipWhitespaces test.
- */
-TEST (StringProbe, skipWhitespaces)
-{
-    StringProbe probe ("   hello");
-
-    probe.skipWhitespaces ();
-    ASSERT_EQ (probe.peek (), 'h');
-
-    probe = StringProbe ("\t                    hello");
-    probe.skipWhitespaces ();
-    ASSERT_EQ (probe.peek (), 'h');
-}
-
-/**
- * @brief skipWhitespacesAndComments test.
- */
-TEST (StringProbe, skipWhitespacesAndComments)
-{
-    StringProbe probe ("   // comment\nhello");
-    ASSERT_EQ (probe.skipWhitespacesAndComments (), 0);
-    ASSERT_EQ (probe.peek (), 'h');
-
-    probe = StringProbe ("   /* comment */hello");
-    ASSERT_EQ (probe.skipWhitespacesAndComments (), 0);
-    ASSERT_EQ (probe.peek (), 'h');
-
-    probe = StringProbe ("// comment");
-    ASSERT_EQ (probe.skipWhitespacesAndComments (), 0);
-    ASSERT_EQ (probe.peek (), std::char_traits<char>::eof ());
-
-    probe = StringProbe ("/* comment */");
-    ASSERT_EQ (probe.skipWhitespacesAndComments (), 0);
-    ASSERT_EQ (probe.peek (), std::char_traits<char>::eof ());
-
-    probe = StringProbe ("/");
-    ASSERT_EQ (probe.skipWhitespacesAndComments (), -1);
-
-    probe = StringProbe ("/*");
-    ASSERT_EQ (probe.skipWhitespacesAndComments (), -1);
-
-    probe = StringProbe ("/!");
-    ASSERT_EQ (probe.skipWhitespacesAndComments (), -1);
+    ASSERT_EQ (probe.end (), text + 5);
+    probe.get ();
+    ASSERT_EQ (probe.end (), text + 5);
 }
 
 /**
