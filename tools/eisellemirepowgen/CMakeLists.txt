@@ -17,17 +17,11 @@ set(PUBLIC_HEADER_DIRS
     include
 )
 
-set(PUBLIC_HEADERS
-    include/version.hpp
-    include/bigint.hpp
-)
-
 set(SOURCES
     src/main.cpp
 )
 
 add_executable(eisellemirepowgen ${SOURCES})
-set_target_properties(eisellemirepowgen PROPERTIES PUBLIC_HEADER "${PUBLIC_HEADERS}")
 
 target_include_directories(eisellemirepowgen PUBLIC  ${PUBLIC_HEADER_DIRS})
 target_include_directories(eisellemirepowgen PRIVATE ${PRIVATE_HEADER_DIRS})
