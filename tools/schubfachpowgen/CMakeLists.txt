@@ -18,16 +18,11 @@ set(PUBLIC_HEADER_DIRS
     ../eisellemirepowgen/include
 )
 
-set(PUBLIC_HEADERS
-    include/version.hpp
-)
-
 set(SOURCES
     src/main.cpp
 )
 
 add_executable(schubfachpowgen ${SOURCES})
-set_target_properties(schubfachpowgen PROPERTIES PUBLIC_HEADER "${PUBLIC_HEADERS}")
 
 target_include_directories(schubfachpowgen PUBLIC  ${PUBLIC_HEADER_DIRS})
 target_include_directories(schubfachpowgen PRIVATE ${PRIVATE_HEADER_DIRS})

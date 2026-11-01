@@ -18,16 +18,11 @@ set(PUBLIC_HEADER_DIRS
     ../eisellemirepowgen/include
 )
 
-set(PUBLIC_HEADERS
-    include/version.hpp
-)
-
 set(SOURCES
     src/main.cpp
 )
 
 add_executable(grisupowgen ${SOURCES})
-set_target_properties(grisupowgen PROPERTIES PUBLIC_HEADER "${PUBLIC_HEADERS}")
 
 target_include_directories(grisupowgen PUBLIC  ${PUBLIC_HEADER_DIRS})
 target_include_directories(grisupowgen PRIVATE ${PRIVATE_HEADER_DIRS})
