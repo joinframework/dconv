@@ -32,4 +32,4 @@ set_target_properties(eisellemirepowgen PROPERTIES PUBLIC_HEADER "${PUBLIC_HEADE
 target_include_directories(eisellemirepowgen PUBLIC  ${PUBLIC_HEADER_DIRS})
 target_include_directories(eisellemirepowgen PRIVATE ${PRIVATE_HEADER_DIRS})
 
-install(TARGETS eisellemirepowgen DESTINATION /bin)
+install(TARGETS eisellemirepowgen DESTINATION ${CMAKE_INSTALL_BINDIR})

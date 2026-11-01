@@ -32,4 +32,4 @@ set_target_properties(grisupowgen PROPERTIES PUBLIC_HEADER "${PUBLIC_HEADERS}")
 target_include_directories(grisupowgen PUBLIC  ${PUBLIC_HEADER_DIRS})
 target_include_directories(grisupowgen PRIVATE ${PRIVATE_HEADER_DIRS})
 
-install(TARGETS grisupowgen DESTINATION /bin)
+install(TARGETS grisupowgen DESTINATION ${CMAKE_INSTALL_BINDIR})

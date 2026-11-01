@@ -32,4 +32,4 @@ set_target_properties(schubfachpowgen PROPERTIES PUBLIC_HEADER "${PUBLIC_HEADERS
 target_include_directories(schubfachpowgen PUBLIC  ${PUBLIC_HEADER_DIRS})
 target_include_directories(schubfachpowgen PRIVATE ${PRIVATE_HEADER_DIRS})
 
-install(TARGETS schubfachpowgen DESTINATION /bin)
+install(TARGETS schubfachpowgen DESTINATION ${CMAKE_INSTALL_BINDIR})

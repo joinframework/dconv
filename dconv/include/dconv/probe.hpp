@@ -26,9 +26,7 @@
 #define __DCONV_PROBE_HPP__
 
 // C++.
-#include <string_view>
 #include <istream>
-#include <string>
 #include <limits>
 
 // C.
@@ -41,43 +39,6 @@
 
 namespace dconv
 {
-    namespace details
-    {
-        struct alignas (64) EscapedTable
-        {
-            uint8_t data[256];
-
-            constexpr EscapedTable ()
-            : data{}
-            {
-                for (unsigned i = 0; i < 0x20; ++i)
-                {
-                    data[i] = 1;
-                }
-                data[static_cast<unsigned char> ('"')] = 1;
-                data[static_cast<unsigned char> ('\\')] = 1;
-            }
-        };
-
-        constexpr EscapedTable escapedLookup{};
-
-        struct alignas (64) WhitespaceTable
-        {
-            uint8_t data[256];
-
-            constexpr WhitespaceTable ()
-            : data{}
-            {
-                data[static_cast<unsigned char> ('\t')] = 1;
-                data[static_cast<unsigned char> ('\n')] = 1;
-                data[static_cast<unsigned char> ('\r')] = 1;
-                data[static_cast<unsigned char> (' ')] = 1;
-            }
-        };
-
-        constexpr WhitespaceTable whitespaceLookup{};
-    }
-
     /**
      * @brief string probe.
      */
@@ -262,145 +223,21 @@ namespace dconv
         }
 
         /**
-         * @brief read characters until escaped, without copying them.
-         * @return characters read.
-         */
-        inline std::string_view readUntilEscaped () noexcept
-        {
-            const char* beg = _cur;
-            const char* cur = _cur;
-            const char* end = _end;
-
-            while (end - cur >= 8)
-            {
-                uint64_t word, quote, backslash;
-                std::memcpy (&word, cur, 8);
-                quote = word ^ 0x2222222222222222ULL;
-                backslash = word ^ 0x5C5C5C5C5C5C5C5CULL;
-                uint64_t mask =
-                    (((quote - 0x0101010101010101ULL) & ~quote) | ((backslash - 0x0101010101010101ULL) & ~backslash) |
-                     ((word - 0x2020202020202020ULL) & ~word)) &
-                    0x8080808080808080ULL;
-                if (mask)
-                {
-                    cur += __builtin_ctzll (mask) >> 3;
-                    break;
-                }
-                cur += 8;
-            }
-
-            while (cur < end && !details::escapedLookup.data[static_cast<unsigned char> (*cur)])
-            {
-                ++cur;
-            }
-
-            _cur = cur;
-            return std::string_view (beg, static_cast<size_t> (cur - beg));
-        }
-
-        /**
-         * @brief read characters until escaped.
-         * @param out output buffer.
-         */
-        inline void readUntilEscaped (std::string& out) noexcept
-        {
-            out.append (readUntilEscaped ());
-        }
-
-        /**
-         * @brief skip whitespaces.
-         * @return 0 on success, -1 otherwise.
-         */
-        inline int skipWhitespaces () noexcept
-        {
-            const char* cur = _cur;
-            const char* end = _end;
-
-            while (cur < end && details::whitespaceLookup.data[static_cast<unsigned char> (*cur)])
-            {
-                ++cur;
-
-                uint64_t word;
-                while ((end - cur >= 8) && (std::memcpy (&word, cur, 8), word == 0x2020202020202020ULL))
-                {
-                    cur += 8;
-                }
-            }
-
-            _cur = cur;
-
-            return 0;
-        }
-
-        /**
-         * @brief skip whitespaces and comments.
-         * @return 0 on success, -1 otherwise.
-         */
-        inline int skipWhitespacesAndComments () noexcept
-        {
-            const char* cur = _cur;
-            const char* end = _end;
-
-            while (cur < end)
-            {
-                while (cur < end && details::whitespaceLookup.data[static_cast<unsigned char> (*cur)])
-                {
-                    ++cur;
-                }
-
-                if (cur >= end || *cur != '/')
-                {
-                    break;
-                }
-
-                if (++cur >= end)
-                {
-                    return -1;
-                }
-
-                if (*cur == '*')
-                {
-                    ++cur;
-                    bool closed = false;
-                    while (cur < end)
-                    {
-                        if (*cur == '*' && (cur + 1 < end) && *(cur + 1) == '/')
-                        {
-                            cur += 2;
-                            closed = true;
-                            break;
-                        }
-                        ++cur;
-                    }
-                    if (!closed)
-                    {
-                        return -1;
-                    }
-                }
-                else if (*cur == '/')
-                {
-                    ++cur;
-                    const char* p = static_cast<const char*> (memchr (cur, '\n', end - cur));
-                    cur = p ? p : end;
-                }
-                else
-                {
-                    return -1;
-                }
-            }
-
-            _cur = cur;
-
-            return 0;
-        }
-
-        /**
          * @brief get input position indicator.
          * @return current position.
          */
         inline ProbePos tell () const noexcept
         {
             return _cur;
+        }
+
+        /**
+         * @brief get end position indicator.
+         * @return end position.
+         */
+        inline ProbePos end () const noexcept
+        {
+            return _end;
         }
 
         /**
@@ -558,103 +395,6 @@ namespace dconv
         inline size_t read (char* buf, size_t count) noexcept
         {
             return _in->sgetn (buf, count);
-        }
-
-        /**
-         * @brief read characters until escaped.
-         * @param out output buffer.
-         */
-        inline void readUntilEscaped (std::string& out) noexcept
-        {
-            int c;
-            while ((c = _in->sgetc ()) != std::char_traits<char>::eof () &&
-                   !details::escapedLookup.data[static_cast<unsigned char> (c)])
-            {
-                out.push_back (static_cast<char> (c));
-                _in->sbumpc ();
-            }
-        }
-
-        /**
-         * @brief skip whitespaces.
-         * @return 0 on success, -1 otherwise.
-         */
-        inline int skipWhitespaces () noexcept
-        {
-            int c;
-            while ((c = _in->sgetc ()) != std::char_traits<char>::eof () &&
-                   details::whitespaceLookup.data[static_cast<unsigned char> (c)])
-            {
-                _in->sbumpc ();
-            }
-
-            return 0;
-        }
-
-        /**
-         * @brief skip whitespaces and comments.
-         * @return 0 on success, -1 otherwise.
-         */
-        inline int skipWhitespacesAndComments () noexcept
-        {
-            int c;
-
-            while ((c = _in->sgetc ()) != std::char_traits<char>::eof ())
-            {
-                while ((c = _in->sgetc ()) != std::char_traits<char>::eof () &&
-                       details::whitespaceLookup.data[static_cast<unsigned char> (c)])
-                {
-                    _in->sbumpc ();
-                }
-
-                if (c != '/')
-                {
-                    break;
-                }
-
-                _in->sbumpc ();
-                c = _in->sgetc ();
-
-                if (c == std::char_traits<char>::eof ())
-                {
-                    return -1;
-                }
-
-                if (c == '*')
-                {
-                    _in->sbumpc ();
-                    bool closed = false;
-
-                    while ((c = _in->sbumpc ()) != std::char_traits<char>::eof ())
-                    {
-                        if (c == '*' && _in->sgetc () == '/')
-                        {
-                            _in->sbumpc ();
-                            closed = true;
-                            break;
-                        }
-                    }
-
-                    if (!closed)
-                    {
-                        return -1;
-                    }
-                }
-                else if (c == '/')
-                {
-                    _in->sbumpc ();
-
-                    while ((c = _in->sbumpc ()) != std::char_traits<char>::eof () && c != '\n')
-                    {
-                    }
-                }
-                else
-                {
-                    return -1;
-                }
-            }
-
-            return 0;
         }
 
     private:
