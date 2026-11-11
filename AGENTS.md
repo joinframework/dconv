@@ -24,14 +24,16 @@ Changes to `AGENTS.md` and `.agents/` keep them tool-agnostic and short; `.claud
 
 ## Definition of done
 
-- **Dev loop**: `gcc-debug`, the relevant test only.
-- **Closing** (before asking to commit), gcc and clang: scope limited to the request; tests added; `debug`, `release`, `asan` pass; `coverage` not degraded; if conversion code changed, `conformance` and `performance` not degraded; `README.md` updated if the API or behaviour changes, else say none needed.
+- **Dev loop**: `gcc-debug`, the relevant test only, once the batch is reviewed (not after each edit). Renames: diff and `clang-format` only. Design still moving: code and benchmarks only.
+- **Closing** (once, when the user says ready to merge), gcc and clang: scope limited to the request; tests added; `debug`, `release`, `asan` pass; `coverage` not degraded; if conversion code changed, `conformance` and `performance` not degraded; `README.md` updated if the API or behaviour changes, else say none needed.
 
 Report what ran; never call a partial pass done. A missing tool or wrong version: ask before installing (`sudo` if justified), else give the command with the `! ` prefix, and report the item **not verified**.
 
 ## Working agreements
 
 - English for code, comments, commits, PRs, docs and branches.
-- Brief answers. Change only what was requested; in reviews and cleanups, one diff at a time, wait for approval.
-- Ask before each branch, commit, push and PR (skill `create-pr`). Never force-push, push to `main` or merge.
+- Brief answers. Change only what was requested; extras as separate proposals.
+- Plain code first, measured; tricks, fast paths or new helpers only as a measured, proposed option.
+- Show one diff at a time; edit only after an explicit yes covering that diff ("ok" after an either/or question is not a choice). Reading, building, measuring and scratchpad work need no approval.
+- Ask before any state-changing git command and each PR (skill `create-pr`); read-only ones are fine. Never force-push, push to `main` or merge.
 - Never edit `build/` or generated `version.hpp` files.

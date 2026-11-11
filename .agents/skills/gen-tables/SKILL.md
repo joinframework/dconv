@@ -25,6 +25,6 @@ Never hand-edit table entries; every change goes through the generator.
 3. **Generate** with the new range (`-l <lower> -u <upper>`) or the modified generator.
 4. **Paste** only the entries into the existing table; keep the header's guard, includes, namespace, declaration (name, element type, `alignas`) and Doxygen. Let `clang-format` lay out the lines.
 5. **Sync** the lookup offset, any range assertion (`assert` in `grisu.hpp`) and the exponent bounds checks in the algorithm with the new range; update the generator README if its defaults changed.
-6. **Verify**: re-run the entries diff against the new output, then the closing checks of `AGENTS.md` "Definition of done" (`conformance` and `performance` included).
+6. **Verify**: re-run the entries diff against the new output and the dev loop of `AGENTS.md` "Definition of done"; `conformance` and `performance` belong to the closing checks, run when the user says the change is ready to merge.
 
-Report the range, entry count before/after, and the test and conformance results.
+Report the range, entry count before/after, and the test results.

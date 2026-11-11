@@ -21,4 +21,12 @@ Baseline: same steps on `main` in a worktree (`git worktree add --detach <scratc
 
 Compare the total and every changed header. Any drop fails: add tests (or `LCOV_EXCL_*` for truly unreachable code, sparingly) and re-measure.
 
-Needs `gcovr` (`pipx install gcovr`) and `llvm-cov` matching clang. If missing, report coverage as **not verified**, never "not degraded".
+Needs `gcovr` and `llvm-cov` matching clang. Without them locally, run the steps above in CI's image (`docker pull joinframework/join-ci:latest` first if it lacks `gcovr`), on copies so the host `build/` is untouched:
+
+```bash
+rsync -a --exclude build ./ <scratchpad>/head/
+docker run --rm --user "$(id -u):$(id -g)" -v <scratchpad>:<scratchpad> -w <scratchpad>/head \
+       joinframework/join-ci:latest bash -c '<steps above>'
+```
+
+Same for the baseline with `-w <scratchpad>/base`. If neither works, report coverage as **not verified**, never "not degraded".

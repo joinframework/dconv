@@ -5,10 +5,20 @@
   },
   "permissions": {
     "ask": [
-      "Bash(git switch -c:*)",
-      "Bash(git checkout -b:*)",
+      "Bash(git add:*)",
+      "Bash(git switch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git restore:*)",
+      "Bash(git reset:*)",
+      "Bash(git stash:*)",
+      "Bash(git rebase:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(git branch:*)",
+      "Bash(git tag:*)",
+      "Bash(git worktree:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)"
     ],
     "deny": [
       "Bash(git push --force:*)",
