@@ -1,0 +1,22 @@
+---
+name: create-pr
+description: Branch, commit, push and open a PR with the dconv conventions. Use when asked to commit, push or open a PR.
+---
+
+# Branch, commit, push
+
+**Ask the user before each of: creating the branch (propose the name), committing (show files and message), pushing (branch and remote), opening the PR (title and base).** One approval covers one action. Never merge, force-push or push to `main`.
+
+1. **Inspect**: `git status`, `git diff`, current branch. Stage nothing unrelated, nothing under `build/`.
+2. **Validate**: the "Definition of done" in `AGENTS.md` is met and non-trivial changes were reviewed. Do not commit if an item fails; say what was not verified when asking.
+3. **Branch**: on `main`, `git switch -c <prefix><kebab-name>`. Stay on a suitable branch; never commit on `main`.
+   - `feature/`: additions (algorithm, API, option, tool).
+   - `bugfix/`: real bug, root cause fixed, regression test added.
+   - `hotfix/`: small quick fix, minimal diff.
+
+   Ask once if bugfix vs hotfix is unclear.
+4. **Version**: bump `VERSION` when the library or tools change (not for CI, docs or agent config). Patch for bugfix/hotfix, minor for a feature or an API change, major only on request. Minor or major also sets `PROJECT_NUMBER` = `<major>.<minor>` in `doxyfile`.
+5. **Commit**: explicit paths (no `git add -A`), one commit. Message: one capitalized imperative line, about 50 chars, no period, no body, no PR number, no trailer: `Stop installing tool headers`, or `Schubfach algorithm` for a new algorithm.
+6. **Push**: `git push -u origin <branch>`. Never rewrite pushed history; report a rejected push.
+7. **PR**: title = commit line, no body. Ask first; with `gh`: `gh pr create --base main --title "<Title>" --body ""`. Otherwise give `https://github.com/joinframework/dconv/compare/main...<branch>?expand=1`.
+8. **Report** branch, commit, presets run and the link; do not claim CI is green.
