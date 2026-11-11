@@ -35,5 +35,5 @@ Report what ran; never call a partial pass done. A missing tool or wrong version
 - Brief answers. Change only what was requested; extras as separate proposals.
 - Plain code first, measured; tricks, fast paths or new helpers only as a measured, proposed option.
 - Show one diff at a time; edit only after an explicit yes covering that diff ("ok" after an either/or question is not a choice). Reading, building, measuring and scratchpad work need no approval.
-- Ask before any state-changing git command and each PR (skill `create-pr`); read-only ones are fine. Never force-push, push to `main` or merge.
+- Ask before any state-changing git command (except `<scratchpad>` worktrees for measurements) and each PR (skill `create-pr`); read-only ones are fine. Never force-push, push to `main` or merge.
 - Never edit `build/` or generated `version.hpp` files.

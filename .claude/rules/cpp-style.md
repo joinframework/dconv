@@ -2,6 +2,8 @@
 paths:
   - "dconv/**/*.hpp"
   - "dconv/**/*.cpp"
+  - "tools/**/*.hpp"
+  - "tools/**/*.cpp"
 ---
 
 # C++ style

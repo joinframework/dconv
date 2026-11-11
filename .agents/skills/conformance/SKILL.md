@@ -10,7 +10,7 @@ Required at closing when conversion code changes (`dconv/include/dconv/`). No ti
 Ask where `dconv-benchmark` is cloned (`https://github.com/joinframework/dconv-benchmark`); never clone it into the dconv tree. It pins dconv to a release tag, so point both builds at local checkouts, `main` in a worktree:
 
 ```bash
-git -C <dconv> worktree add --detach <scratchpad>/base main
+git -C <dconv> fetch origin main && git -C <dconv> worktree add --detach <scratchpad>/base origin/main
 cmake -S <bench> -B <bench>/build/main   -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_SOURCE_DIR_DCONV=<scratchpad>/base
 cmake -S <bench> -B <bench>/build/branch -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_SOURCE_DIR_DCONV=<dconv>
 cmake --build <build> --target conformance
