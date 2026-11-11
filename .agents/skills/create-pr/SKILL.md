@@ -15,7 +15,7 @@ description: Branch, commit, push and open a PR with the dconv conventions. Use 
    - `hotfix/`: small quick fix, minimal diff.
 
    Ask once if bugfix vs hotfix is unclear.
-4. **Version**: bump `VERSION` when the library or tools change (not for CI, docs or agent config). Patch for bugfix/hotfix, minor for a feature or an API change, major only on request. Minor or major also sets `PROJECT_NUMBER` = `<major>.<minor>` in `doxyfile`.
+4. **Version**: bump `VERSION` in every PR: minor for a feature or an API change, patch otherwise (bugfix, hotfix, tools, CI, docs, agent config), major only on request. Minor or major also sets `PROJECT_NUMBER` = `<major>.<minor>` in `doxyfile`.
 5. **Commit**: explicit paths (no `git add -A`), one commit. Message: one capitalized imperative line, about 50 chars, no period, no body, no PR number, no trailer: `Stop installing tool headers`, or `Schubfach algorithm` for a new algorithm.
 6. **Push**: `git push -u origin <branch>`. Never rewrite pushed history; report a rejected push.
 7. **PR**: title = commit line, no body. Ask first; with `gh`: `gh pr create --base main --title "<Title>" --body ""`. Otherwise give `https://github.com/joinframework/dconv/compare/main...<branch>?expand=1`.

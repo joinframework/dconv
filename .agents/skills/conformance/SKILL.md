@@ -7,7 +7,7 @@ description: Check dtoa/atod correctness versus main with the dconv-benchmark co
 
 Required at closing when conversion code changes (`dconv/include/dconv/`). No timing: any machine works. For speed see skill `performance`.
 
-Ask where `dconv-benchmark` is cloned (`https://github.com/joinframework/dconv-benchmark`); never clone it into the dconv tree. It pins dconv to a release tag, so point both builds at local checkouts, `main` in a worktree:
+Clone `https://github.com/joinframework/dconv-benchmark.git` into `<bench>` under `<scratchpad>`, never into the dconv tree. It pins dconv to a release tag, so point both builds at local checkouts, `origin/main` in a worktree:
 
 ```bash
 git -C <dconv> fetch origin main && git -C <dconv> worktree add --detach <scratchpad>/base origin/main

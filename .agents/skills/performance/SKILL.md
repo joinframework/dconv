@@ -9,7 +9,7 @@ Required at closing when conversion code changes (`dconv/include/dconv/`). Done 
 
 ## 1. Ask first
 
-Ask the user: **is a real machine available (ideally x86_64 and aarch64)?** Ask where `dconv-benchmark` is cloned; never clone it into the dconv tree.
+Ask the user: **is a real machine available (ideally x86_64 and aarch64)?** Clone `dconv-benchmark` there as in skill `conformance`, never into the dconv tree.
 
 ## 2. Performance mode
 
