@@ -7,17 +7,17 @@ description: Check dtoa/atod correctness versus main with the dconv-benchmark co
 
 Required at closing when conversion code changes (`dconv/include/dconv/`). No timing: any machine works. For speed see skill `performance`.
 
-Clone `https://github.com/joinframework/dconv-benchmark.git` into `<bench>` under `<scratchpad>`, never into the dconv tree. It pins dconv to a release tag, so point both builds at local checkouts, `origin/main` in a worktree:
+`<bench>` is `dconv-benchmark` next to dconv (`../dconv-benchmark`); if missing, clone `https://github.com/joinframework/dconv-benchmark.git` there, never into the dconv tree. It pins dconv to a release tag, so point both builds at local checkouts, `origin/main` in a worktree:
 
 ```bash
 git -C <dconv> fetch origin main && git -C <dconv> worktree add --detach <scratchpad>/base origin/main
-cmake -S <bench> -B <bench>/build/main   -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_SOURCE_DIR_DCONV=<scratchpad>/base
-cmake -S <bench> -B <bench>/build/branch -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_SOURCE_DIR_DCONV=<dconv>
+cmake -S <bench> -B <scratchpad>/build/main   -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_SOURCE_DIR_DCONV=<scratchpad>/base
+cmake -S <bench> -B <scratchpad>/build/branch -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_SOURCE_DIR_DCONV=<dconv>
 cmake --build <build> --target conformance
 <build>/benchmarks/conformance/conformance --output <scratchpad>/conformance-<main|branch>.json
 ```
 
-Remove the worktree at the end (`git worktree remove --force`), even on failure.
+Check each tree measures the intended dconv: `grep FETCHCONTENT_SOURCE_DIR_DCONV <build>/CMakeCache.txt` must show its path, otherwise the numbers are the pinned tag. Remove the worktree at the end (`git worktree remove --force`), even on failure.
 
 ## Pass criteria
 

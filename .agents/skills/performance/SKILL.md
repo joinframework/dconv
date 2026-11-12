@@ -9,7 +9,7 @@ Required at closing when conversion code changes (`dconv/include/dconv/`). Done 
 
 ## 1. Ask first
 
-Ask the user: **is a real machine available (ideally x86_64 and aarch64)?** Clone `dconv-benchmark` there as in skill `conformance`, never into the dconv tree.
+Ask the user: **is a real machine available (ideally x86_64 and aarch64)?** Use the `dconv-benchmark` checkout of skill `conformance`.
 
 ## 2. Performance mode
 
@@ -25,10 +25,10 @@ Use `sudo` only when justified; otherwise give the commands with the `! ` prefix
 
 ## 3. Compare
 
-Same `build/main` / `build/branch` setup as skill `conformance` (local checkouts via `FETCHCONTENT_SOURCE_DIR_DCONV`, `main` in a worktree). Build `bench_dtoa_dconv` and `bench_atod_dconv` (+ `bench_dtoa_dconvgrisu{,2,3}` if Grisu changed).
+Same `<scratchpad>/build/main` / `<scratchpad>/build/branch` setup as skill `conformance` (local checkouts via `FETCHCONTENT_SOURCE_DIR_DCONV`, `main` in a worktree). Build `bench_dtoa_dconv` and `bench_atod_dconv` (+ `bench_dtoa_dconvgrisu{,2,3}` if Grisu changed).
 
 Binaries: `<build>/benchmarks/performance/bench_*`. Export the same `GLIBC_TUNABLES` as `scripts/run_bench.sh`. Run them alternately main/branch, several times, `taskset -c 2`, with `--benchmark_min_warmup_time=0.1 --benchmark_min_time=0.2s`; keep the minimum. Datasets: `Canada`, `Random`, `Unit`, `Integer`, `Digits01..17`. Remove the worktree at the end, even on failure.
 
 ## 4. Report
 
-Machine (CPU, arch, governor/boost, native or WSL2), repetitions, and a before/after table per dataset with the relative change. A change is real only beyond the spread; never claim an unmeasured gain.
+Machine (CPU, arch, governor/boost, native or WSL2), repetitions, and a before/after table per dataset with the relative change. A change is real only beyond the spread; never claim an unmeasured gain. When a delta is close to the spread, rerun with 5 repetitions per side and decide with google benchmark's `compare.py` (`<build>/_deps/googlebenchmark-src/tools/compare.py benchmarks <main>.json <branch>.json`, needs `scipy`; merge each side's runs into one JSON first): with 3 per side its Mann-Whitney test cannot reach p < 0.05. A mechanism read from the diff is a hypothesis until `perf stat -e cycles,instructions,cache-misses,branch-misses` shows it (needs `kernel.perf_event_paranoid` <= 1).
