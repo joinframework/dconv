@@ -18,7 +18,7 @@ cmake --preset gcc-debug && cmake --build --preset gcc-debug && ctest --preset g
 
 ## Agent files
 
-Skills in `.agents/skills/<name>/SKILL.md`: compile, test, coverage, conformance, performance, add-gtest, gen-tables, create-pr, release; `<scratchpad>` in them is a temporary directory outside the repository. Run `clang-format` (CI uses 19) on changed C++ files.
+Skills in `.agents/skills/<name>/SKILL.md`: compile, test, coverage, conformance, performance, add-gtest, gen-tables, create-pr, release; `<scratchpad>` in them is a temporary directory outside the repository. Run `clang-format` on changed C++ files at the version pinned in `.github/workflows/build.yml`.
 
 Changes to `AGENTS.md` and `.agents/` keep them tool-agnostic and short; `.claude/` is Claude Code only.
 

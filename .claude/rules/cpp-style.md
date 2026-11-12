@@ -8,7 +8,7 @@ paths:
 
 # C++ style
 
-`.clang-format` is enforced (hook, or `clang-format` 19); never hand-format.
+`.clang-format` is enforced (hook, or `clang-format` at the CI version); never hand-format.
 
 ## Layout
 - C++20, header-only, no language extensions; GNU builtins and attributes already in use (`__builtin_expect`, `__attribute__ ((cold, noinline))`) are accepted. Space before every `(` (`foo (a)`, `TEST (s, n)`); Allman braces on every control statement.

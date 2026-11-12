@@ -20,3 +20,4 @@ description: Tag and publish a dconv release from main. Use when asked to releas
 5. **Downstream**: list the updates, each done in its own repo with its own PR, only if the user asks:
    - join: `find_package(dconv <version> REQUIRED)` in `data/CMakeLists.txt`, `find_dependency(dconv <version>)` in `cmake/joinConfig.cmake.in`, `libdconv-dev (>= <version>)` in `cmake/packaging.cmake`, the `.deb` URL and file name in `README.md`.
    - dconv-benchmark: `GIT_TAG v<version>` in `cmake/deps.cmake`, the dconv rows of the README libraries table (results and plots only after a new benchmark run).
+   - json-benchmark, pack-benchmark: `GIT_TAG v<version>` in `cmake/deps.cmake`.

@@ -16,7 +16,7 @@ Presets: `gcc-` / `clang-` + `debug` (coverage), `release`, `asan` (ASan + UBSan
 
 ## What CI builds on every PR
 
-1. `clang-format` **19** over the tree (gates everything). Check `clang-format --version`: if it is not 19, ask the user to install it; a format diff seen only in CI points to the version gap.
+1. `clang-format` at the version pinned in `build.yml` over the tree (gates everything). Check `clang-format --version`: if it differs, ask the user to install it; a format diff seen only in CI points to the version gap.
 2. gcc and clang x amd64 and arm64, in `joinframework/join-ci`: `release` then `debug`; `asan` on amd64.
 3. CodeQL on `gcc-debug`.
 4. `gcovr` coverage on amd64 (gcc and clang, kept as artifacts); only gcc's is uploaded to Coveralls/Codecov/Codacy by `deploy-coverage`, which can fail the run.
