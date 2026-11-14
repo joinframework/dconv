@@ -71,19 +71,29 @@ TEST (atod, atod)
 {
     double value = 0.0;
 
-    EXPECT_EQ (dconv::atod ("003", value), nullptr);
+    EXPECT_EQ (dconv::atod<dconv::AtodMode::Json> ("003", value), nullptr);
+    ASSERT_NE (dconv::atod ("003", value), nullptr);
+    EXPECT_EQ (value, 3.0);
 
-    EXPECT_EQ (dconv::atod ("Infinaty", value), nullptr);
+    EXPECT_EQ (dconv::atod < dconv::AtodMode::Json | dconv::AtodMode::ParseNanAndInf > ("Infinaty", value), nullptr);
+    ASSERT_NE (dconv::atod ("Infinaty", value), nullptr);
+    EXPECT_TRUE (!std::signbit (value) && std::isinf (value));
 
-    EXPECT_EQ (dconv::atod ("-Infinaty", value), nullptr);
+    EXPECT_EQ (dconv::atod < dconv::AtodMode::Json | dconv::AtodMode::ParseNanAndInf > ("-Infinaty", value), nullptr);
+    ASSERT_NE (dconv::atod ("-Infinaty", value), nullptr);
+    EXPECT_TRUE (std::signbit (value) && std::isinf (value));
 
     EXPECT_EQ (dconv::atod ("not valid", value), nullptr);
 
-    EXPECT_EQ (dconv::atod ("1ee+10", value), nullptr);
+    EXPECT_EQ (dconv::atod<dconv::AtodMode::Json> ("1ee+10", value), nullptr);
 
-    EXPECT_EQ (dconv::atod ("1ee+10", value), nullptr);
+    EXPECT_EQ (dconv::atod<dconv::AtodMode::Json> ("1ee+10", value), nullptr);
+    ASSERT_NE (dconv::atod ("1ee+10", value), nullptr);
+    EXPECT_EQ (value, 1.0);
 
-    EXPECT_EQ (dconv::atod ("1.e+10", value), nullptr);
+    EXPECT_EQ (dconv::atod<dconv::AtodMode::Json> ("1.e+10", value), nullptr);
+    ASSERT_NE (dconv::atod ("1.e+10", value), nullptr);
+    EXPECT_EQ (value, 1e10);
 
     ASSERT_NE (dconv::atod ("infinity", value), nullptr);
     EXPECT_TRUE (!std::signbit (value) && std::isinf (value));
@@ -429,7 +439,13 @@ TEST (atod, atod)
 
     std::istringstream longInvalid ("12345678901234567890.x");
     dconv::StreamProbe longInvalidProbe (longInvalid);
-    ASSERT_FALSE (dconv::atod (longInvalidProbe, value));
+    ASSERT_FALSE (dconv::atod<dconv::AtodMode::Json> (longInvalidProbe, value));
+
+    std::istringstream longPoint ("12345678901234567890.x");
+    dconv::StreamProbe longPointProbe (longPoint);
+    ASSERT_TRUE (dconv::atod (longPointProbe, value));
+    EXPECT_EQ (value, 12345678901234567890.0);
+    EXPECT_EQ (longPointProbe.peek (), 'x');
 
     std::istringstream longExponent ("12345678901234567890e+x");
     ASSERT_FALSE (dconv::atod (longExponent, value));
@@ -449,9 +465,18 @@ TEST (atod, atod)
     EXPECT_EQ (value, 0.25);
     EXPECT_EQ (in.peek (), ' ');
 
-    EXPECT_EQ (dconv::atod ("12345678901234567890.", value), nullptr);
-    EXPECT_EQ (dconv::atod ("12345678901234567890e", value), nullptr);
-    EXPECT_EQ (dconv::atod ("0.12345678901234567890e+", value), nullptr);
+    EXPECT_EQ (dconv::atod<dconv::AtodMode::Json> ("12345678901234567890.", value), nullptr);
+    EXPECT_EQ (dconv::atod<dconv::AtodMode::Json> ("12345678901234567890e", value), nullptr);
+    EXPECT_EQ (dconv::atod<dconv::AtodMode::Json> ("0.12345678901234567890e+", value), nullptr);
+
+    ASSERT_NE (dconv::atod ("12345678901234567890.", value), nullptr);
+    EXPECT_EQ (value, 12345678901234567890.0);
+
+    ASSERT_NE (dconv::atod ("12345678901234567890e", value), nullptr);
+    EXPECT_EQ (value, 12345678901234567890.0);
+
+    ASSERT_NE (dconv::atod ("0.12345678901234567890e+", value), nullptr);
+    EXPECT_EQ (value, 0.12345678901234567890);
 
     std::string longest = "9007199254740993." + std::string (900, '0');
     ASSERT_NE (dconv::atod (longest.c_str (), value), nullptr);
@@ -571,18 +596,34 @@ TEST (atod, atod)
 
     str = "01";
     dconv::StringProbe leadingZeroProbe (str);
-    ASSERT_EQ (dconv::atod (leadingZeroProbe, value, significand, exponent, negative, ec), -1);
+    ASSERT_EQ (dconv::atod<dconv::AtodMode::Json> (leadingZeroProbe, value, significand, exponent, negative, ec), -1);
     EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    dconv::StringProbe relaxedZeroProbe (str);
+    ASSERT_EQ (dconv::atod (relaxedZeroProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::NotDouble);
+    EXPECT_EQ (significand, 1u);
+    EXPECT_FALSE (negative);
 
     str = "1.";
     dconv::StringProbe dotProbe (str);
-    ASSERT_EQ (dconv::atod (dotProbe, value, significand, exponent, negative, ec), -1);
+    ASSERT_EQ (dconv::atod<dconv::AtodMode::Json> (dotProbe, value, significand, exponent, negative, ec), -1);
     EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    dconv::StringProbe relaxedDotProbe (str);
+    ASSERT_EQ (dconv::atod (relaxedDotProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, 1.0);
 
     str = "1e+";
     dconv::StringProbe exponentSignProbe (str);
-    ASSERT_EQ (dconv::atod (exponentSignProbe, value, significand, exponent, negative, ec), -1);
+    ASSERT_EQ (dconv::atod<dconv::AtodMode::Json> (exponentSignProbe, value, significand, exponent, negative, ec), -1);
     EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    dconv::StringProbe relaxedExponentProbe (str);
+    ASSERT_EQ (dconv::atod (relaxedExponentProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::NotDouble);
+    EXPECT_EQ (significand, 1u);
+    EXPECT_EQ (relaxedExponentProbe.peek (), 'e');
 
     str = "-";
     dconv::StringProbe signProbe (str);
@@ -591,23 +632,44 @@ TEST (atod, atod)
 
     str = "infinit";
     dconv::StringProbe infinityProbe (str);
-    ASSERT_EQ (dconv::atod (infinityProbe, value, significand, exponent, negative, ec), -1);
+    ASSERT_EQ (dconv::atod < dconv::AtodMode::Json |
+                   dconv::AtodMode::ParseNanAndInf > (infinityProbe, value, significand, exponent, negative, ec),
+               -1);
     EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    dconv::StringProbe relaxedInfinityProbe (str);
+    ASSERT_EQ (dconv::atod (relaxedInfinityProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, std::numeric_limits<double>::infinity ());
+    EXPECT_EQ (relaxedInfinityProbe.peek (), 'i');
 
     str = "12345678901234567890.";
     dconv::StringProbe longDotProbe (str);
-    ASSERT_EQ (dconv::atod (longDotProbe, value, significand, exponent, negative, ec), -1);
+    ASSERT_EQ (dconv::atod<dconv::AtodMode::Json> (longDotProbe, value, significand, exponent, negative, ec), -1);
     EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    dconv::StringProbe relaxedLongDotProbe (str);
+    ASSERT_EQ (dconv::atod (relaxedLongDotProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, 12345678901234567890.0);
 
     str = "0.12345678901234567890e";
     dconv::StringProbe longExponentProbe (str);
-    ASSERT_EQ (dconv::atod (longExponentProbe, value, significand, exponent, negative, ec), -1);
+    ASSERT_EQ (dconv::atod<dconv::AtodMode::Json> (longExponentProbe, value, significand, exponent, negative, ec), -1);
     EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    dconv::StringProbe relaxedLongExponentProbe (str);
+    ASSERT_EQ (dconv::atod (relaxedLongExponentProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, 0.12345678901234567890);
+    EXPECT_EQ (relaxedLongExponentProbe.peek (), 'e');
 
     std::istringstream longDotStreamIn ("12345678901234567890.");
     dconv::StreamProbe longDotStreamProbe (longDotStreamIn);
-    ASSERT_EQ (dconv::atod (longDotStreamProbe, value, significand, exponent, negative, ec), -1);
+    ASSERT_EQ (dconv::atod<dconv::AtodMode::Json> (longDotStreamProbe, value, significand, exponent, negative, ec), -1);
     EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+
+    std::istringstream relaxedLongDotStreamIn ("12345678901234567890.");
+    dconv::StreamProbe relaxedLongDotStreamProbe (relaxedLongDotStreamIn);
+    ASSERT_EQ (dconv::atod (relaxedLongDotStreamProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, 12345678901234567890.0);
 
     str = "-infinity";
     dconv::StringProbe infinityValueProbe (str);
@@ -618,6 +680,236 @@ TEST (atod, atod)
     dconv::StringProbe nanProbe (str);
     ASSERT_EQ (dconv::atod (nanProbe, value, significand, exponent, negative, ec), 0);
     EXPECT_TRUE (std::isnan (value));
+
+    EXPECT_EQ (dconv::atod<dconv::AtodMode::Json> ("inf", value), nullptr);
+    EXPECT_EQ (dconv::atod<dconv::AtodMode::Json> ("-inf", value), nullptr);
+    EXPECT_EQ (dconv::atod<dconv::AtodMode::Json> ("nan", value), nullptr);
+    EXPECT_EQ (dconv::atod<dconv::AtodMode::Json> (".5", value), nullptr);
+
+    ASSERT_NE (dconv::atod < dconv::AtodMode::Json | dconv::AtodMode::ParseNanAndInf > ("inf", value), nullptr);
+    EXPECT_TRUE (!std::signbit (value) && std::isinf (value));
+    ASSERT_NE (dconv::atod < dconv::AtodMode::Json | dconv::AtodMode::ParseNanAndInf > ("nan", value), nullptr);
+    EXPECT_TRUE (std::isnan (value));
+    EXPECT_EQ (dconv::atod < dconv::AtodMode::Json | dconv::AtodMode::ParseNanAndInf > ("1.", value), nullptr);
+
+    EXPECT_EQ (dconv::atod<dconv::AtodMode::ParseRelaxedNumber> ("inf", value), nullptr);
+    EXPECT_EQ (dconv::atod<dconv::AtodMode::ParseRelaxedNumber> ("nan", value), nullptr);
+    ASSERT_NE (dconv::atod<dconv::AtodMode::ParseRelaxedNumber> ("007", value), nullptr);
+    EXPECT_EQ (value, 7.0);
+
+    ASSERT_NE (dconv::atod (".5", value), nullptr);
+    EXPECT_EQ (value, 0.5);
+
+    ASSERT_NE (dconv::atod ("-.5", value), nullptr);
+    EXPECT_EQ (value, -0.5);
+
+    EXPECT_EQ (dconv::atod (".", value), nullptr);
+
+    EXPECT_EQ (dconv::atod ("-.", value), nullptr);
+
+    ASSERT_NE (dconv::atod ("1.", value), nullptr);
+    EXPECT_EQ (value, 1.0);
+
+    ASSERT_NE (dconv::atod ("0.", value), nullptr);
+    EXPECT_EQ (value, 0.0);
+
+    ASSERT_NE (dconv::atod ("1.e5", value), nullptr);
+    EXPECT_EQ (value, 1e5);
+
+    ASSERT_NE (dconv::atod ("-007.50", value), nullptr);
+    EXPECT_EQ (value, -7.5);
+
+    str = "00";
+    EXPECT_EQ (dconv::atod (str, value), str + 2);
+    EXPECT_EQ (value, 0.0);
+
+    str = "00.5";
+    EXPECT_EQ (dconv::atod (str, value), str + 4);
+    EXPECT_EQ (value, 0.5);
+
+    str = "00e2";
+    EXPECT_EQ (dconv::atod (str, value), str + 4);
+    EXPECT_EQ (value, 0.0);
+
+    str = "00x";
+    EXPECT_EQ (dconv::atod (str, value), str + 2);
+    EXPECT_EQ (value, 0.0);
+
+    str = "0inf";
+    EXPECT_EQ (dconv::atod (str, value), str + 1);
+    EXPECT_EQ (value, 0.0);
+
+    str = "1e";
+    EXPECT_EQ (dconv::atod (str, value), str + 1);
+    EXPECT_EQ (value, 1.0);
+
+    str = "1.5e-x";
+    EXPECT_EQ (dconv::atod (str, value), str + 3);
+    EXPECT_EQ (value, 1.5);
+
+    str = "infinit";
+    EXPECT_EQ (dconv::atod (str, value), str + 3);
+    EXPECT_EQ (value, std::numeric_limits<double>::infinity ());
+
+    str = "12345678901234567890e+";
+    EXPECT_EQ (dconv::atod (str, value), str + 20);
+    EXPECT_EQ (value, 12345678901234567890.0);
+
+    str = "0.12345678901234567890123E-";
+    EXPECT_EQ (dconv::atod (str, value), str + 25);
+    EXPECT_EQ (value, 0.12345678901234567890123);
+
+    str = "007.12345678901234567890123";
+    EXPECT_EQ (dconv::atod (str, value), str + 27);
+    EXPECT_EQ (value, 7.12345678901234567890123);
+
+    std::istringstream relaxedZeros ("007");
+    ASSERT_TRUE (dconv::atod (relaxedZeros, value));
+    EXPECT_EQ (value, 7.0);
+
+    std::istringstream relaxedZeroFraction ("00.5");
+    ASSERT_TRUE (dconv::atod (relaxedZeroFraction, value));
+    EXPECT_EQ (value, 0.5);
+
+    std::istringstream relaxedPoint (".5");
+    ASSERT_TRUE (dconv::atod (relaxedPoint, value));
+    EXPECT_EQ (value, 0.5);
+
+    std::istringstream relaxedTrailingPoint ("1.");
+    ASSERT_TRUE (dconv::atod (relaxedTrailingPoint, value));
+    EXPECT_EQ (value, 1.0);
+
+    std::istringstream relaxedLonePoint (".");
+    EXPECT_FALSE (dconv::atod (relaxedLonePoint, value));
+
+    std::istringstream relaxedExponent ("1e+");
+    EXPECT_FALSE (dconv::atod (relaxedExponent, value));
+
+    std::istringstream relaxedInfinity ("infinit");
+    EXPECT_FALSE (dconv::atod (relaxedInfinity, value));
+
+    std::istringstream relaxedInfinityValue ("-Infinity");
+    ASSERT_TRUE (dconv::atod (relaxedInfinityValue, value));
+    EXPECT_EQ (value, -std::numeric_limits<double>::infinity ());
+
+    std::istringstream relaxedNan ("nan");
+    ASSERT_TRUE (dconv::atod (relaxedNan, value));
+    EXPECT_TRUE (std::isnan (value));
+
+    std::istringstream relaxedInvalid ("x");
+    EXPECT_FALSE (dconv::atod (relaxedInvalid, value));
+
+    std::istringstream relaxedLongFraction ("0.12345678901234567890123");
+    ASSERT_TRUE (dconv::atod (relaxedLongFraction, value));
+    EXPECT_EQ (value, 0.12345678901234567890123);
+
+    std::istringstream relaxedFractionZeros ("0.005");
+    ASSERT_TRUE (dconv::atod (relaxedFractionZeros, value));
+    EXPECT_EQ (value, 0.005);
+
+    std::istringstream relaxedLongExponent ("0.12345678901234567890123e+");
+    EXPECT_FALSE (dconv::atod (relaxedLongExponent, value));
+
+    std::istringstream strictMaxIn ("18446744073709551615");
+    dconv::StreamProbe strictMaxProbe (strictMaxIn);
+    ASSERT_EQ (dconv::atod<dconv::AtodMode::Json> (strictMaxProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::NotDouble);
+    EXPECT_EQ (significand, 18446744073709551615u);
+
+    std::istringstream strictLongIn ("12345678901234567890.5");
+    dconv::StreamProbe strictLongProbe (strictLongIn);
+    ASSERT_EQ (dconv::atod<dconv::AtodMode::Json> (strictLongProbe, value, significand, exponent, negative, ec), 0);
+    EXPECT_EQ (value, 12345678901234567890.5);
+
+    std::istringstream strictLongFractionIn ("0.12345678901234567890123");
+    dconv::StreamProbe strictLongFractionProbe (strictLongFractionIn);
+    ASSERT_EQ (dconv::atod<dconv::AtodMode::Json> (strictLongFractionProbe, value, significand, exponent, negative, ec),
+               0);
+    EXPECT_EQ (value, 0.12345678901234567890123);
+
+    std::istringstream strictStream ("inf");
+    EXPECT_FALSE (dconv::atod<dconv::AtodMode::Json> (strictStream, value));
+
+    std::istringstream strictZeros ("007");
+    dconv::StreamProbe strictZerosProbe (strictZeros);
+    ASSERT_EQ (dconv::atod<dconv::AtodMode::Json> (strictZerosProbe, value, significand, exponent, negative, ec), -1);
+    EXPECT_EQ (ec, dconv::Errc::InvalidNumber);
+}
+
+/**
+ * @brief and operator test.
+ */
+TEST (AtodMode, bitwiseAnd)
+{
+    dconv::AtodMode mode = dconv::AtodMode::General;
+
+    EXPECT_EQ (mode & dconv::AtodMode::ParseNanAndInf, dconv::AtodMode::ParseNanAndInf);
+    EXPECT_EQ (dconv::AtodMode::Json & mode, dconv::AtodMode::Json);
+}
+
+/**
+ * @brief or operator test.
+ */
+TEST (AtodMode, bitwiseOr)
+{
+    dconv::AtodMode mode = dconv::AtodMode::ParseNanAndInf;
+
+    EXPECT_EQ (mode | dconv::AtodMode::ParseRelaxedNumber, dconv::AtodMode::General);
+    EXPECT_EQ (mode | dconv::AtodMode::Json, dconv::AtodMode::ParseNanAndInf);
+}
+
+/**
+ * @brief xor operator test.
+ */
+TEST (AtodMode, bitwiseXor)
+{
+    dconv::AtodMode mode = dconv::AtodMode::General;
+
+    EXPECT_EQ (mode ^ dconv::AtodMode::ParseNanAndInf, dconv::AtodMode::ParseRelaxedNumber);
+    EXPECT_EQ (mode ^ mode, dconv::AtodMode::Json);
+}
+
+/**
+ * @brief not operator test.
+ */
+TEST (AtodMode, bitwiseNot)
+{
+    dconv::AtodMode mode = dconv::AtodMode::ParseNanAndInf;
+
+    EXPECT_EQ (~mode & dconv::AtodMode::General, dconv::AtodMode::ParseRelaxedNumber);
+}
+
+/**
+ * @brief and assignment operator test.
+ */
+TEST (AtodMode, bitwiseAndAssign)
+{
+    dconv::AtodMode mode = dconv::AtodMode::General;
+
+    mode &= dconv::AtodMode::ParseRelaxedNumber;
+    EXPECT_EQ (mode, dconv::AtodMode::ParseRelaxedNumber);
+}
+
+/**
+ * @brief or assignment operator test.
+ */
+TEST (AtodMode, bitwiseOrAssign)
+{
+    dconv::AtodMode mode = dconv::AtodMode::Json;
+
+    mode |= dconv::AtodMode::ParseNanAndInf;
+    EXPECT_EQ (mode, dconv::AtodMode::ParseNanAndInf);
+}
+
+/**
+ * @brief xor assignment operator test.
+ */
+TEST (AtodMode, bitwiseXorAssign)
+{
+    dconv::AtodMode mode = dconv::AtodMode::General;
+
+    mode ^= dconv::AtodMode::ParseNanAndInf;
+    EXPECT_EQ (mode, dconv::AtodMode::ParseRelaxedNumber);
 }
 
 /**
