@@ -45,6 +45,93 @@
 
 namespace dconv
 {
+    /**
+     * @brief string to double conversion mode.
+     */
+    enum class AtodMode : uint32_t
+    {
+        Json = 0,                                      /**< JSON number grammar. */
+        ParseNanAndInf = 1L << 0,                      /**< parse nan, inf and infinity. */
+        ParseRelaxedNumber = 1L << 1,                  /**< parse leading zeros and missing digits around the point. */
+        General = ParseNanAndInf | ParseRelaxedNumber, /**< general format. */
+    };
+
+    /**
+     * @brief perform binary AND on AtodMode.
+     * @param a bitset.
+     * @param b other bitset.
+     * @return bitset result of binary AND on AtodMode.
+     */
+    constexpr AtodMode operator& (AtodMode a, AtodMode b) noexcept
+    {
+        return AtodMode (static_cast<uint32_t> (a) & static_cast<uint32_t> (b));
+    }
+
+    /**
+     * @brief perform binary OR on AtodMode.
+     * @param a bitset.
+     * @param b other bitset.
+     * @return bitset result of binary OR on AtodMode.
+     */
+    constexpr AtodMode operator| (AtodMode a, AtodMode b) noexcept
+    {
+        return AtodMode (static_cast<uint32_t> (a) | static_cast<uint32_t> (b));
+    }
+
+    /**
+     * @brief perform binary XOR on AtodMode.
+     * @param a bitset.
+     * @param b other bitset.
+     * @return bitset result of binary XOR on AtodMode.
+     */
+    constexpr AtodMode operator^ (AtodMode a, AtodMode b) noexcept
+    {
+        return AtodMode (static_cast<uint32_t> (a) ^ static_cast<uint32_t> (b));
+    }
+
+    /**
+     * @brief perform binary NOT on AtodMode.
+     * @param a bitset.
+     * @return bitset result of binary NOT on AtodMode.
+     */
+    constexpr AtodMode operator~(AtodMode a) noexcept
+    {
+        return AtodMode (~static_cast<uint32_t> (a));
+    }
+
+    /**
+     * @brief perform binary AND assignment on AtodMode.
+     * @param a bitset.
+     * @param b other bitset.
+     * @return reference to updated bitset.
+     */
+    constexpr const AtodMode& operator&= (AtodMode& a, AtodMode b) noexcept
+    {
+        return a = a & b;
+    }
+
+    /**
+     * @brief perform binary OR assignment on AtodMode.
+     * @param a bitset.
+     * @param b other bitset.
+     * @return reference to updated bitset.
+     */
+    constexpr const AtodMode& operator|= (AtodMode& a, AtodMode b) noexcept
+    {
+        return a = a | b;
+    }
+
+    /**
+     * @brief perform binary XOR assignment on AtodMode.
+     * @param a bitset.
+     * @param b other bitset.
+     * @return reference to updated bitset.
+     */
+    constexpr const AtodMode& operator^= (AtodMode& a, AtodMode b) noexcept
+    {
+        return a = a ^ b;
+    }
+
     namespace details
     {
         inline constexpr bool isDigit (char c) noexcept
@@ -114,9 +201,9 @@ namespace dconv
          * @param pending integer digit already read beyond the significand, or -1.
          * @return true on success, false otherwise.
          */
-        template <typename Probe>
-        __attribute__ ((cold, noinline)) bool atodLong (Probe& probe, bool negative, uint64_t significand,
-                                                        int64_t& scale, bool fraction, double& value, int pending = -1)
+        template <typename Probe, bool Relaxed>
+        DCONV_COLD bool atodLong (Probe& probe, bool negative, uint64_t significand, int64_t& scale, bool fraction,
+                                  double& value, int pending = -1)
         {
             static constexpr int maxDigits = 800;
             char text[maxDigits + 32];
@@ -148,7 +235,7 @@ namespace dconv
 
                 if (probe.getIf ('.'))
                 {
-                    if (DCONV_UNLIKELY (!isDigit (probe.peek ())))
+                    if (DCONV_UNLIKELY (!Relaxed && !isDigit (probe.peek ())))
                     {
                         return false;
                     }
@@ -169,9 +256,21 @@ namespace dconv
             }
 
             int64_t exponent = 0;
-            if (!readExponent (probe, exponent))
+            if constexpr (Relaxed && std::is_same_v<Probe, StringProbe>)
             {
-                return false;
+                const char* mark = probe.tell ();
+                if (!readExponent (probe, exponent))
+                {
+                    probe.seek (mark);
+                    exponent = 0;
+                }
+            }
+            else
+            {
+                if (!readExponent (probe, exponent))
+                {
+                    return false;
+                }
             }
 
             scale += exponent;
@@ -195,7 +294,7 @@ namespace dconv
         }
 
         /**
-         * @brief string to double conversion that stops on integers.
+         * @brief string to double conversion in general format that stops on integers.
          * @param probe probe to read from.
          * @param value converted value.
          * @param significand integer value when the error is NotDouble, first significant digits read otherwise.
@@ -203,14 +302,10 @@ namespace dconv
          * @param negative sign read.
          * @return Errc::Success on success, the error otherwise.
          */
-        template <typename Probe, bool Rewind = std::is_same_v<Probe, StringProbe>>
-        inline Errc atod (Probe& probe, double& value, uint64_t& significand, int64_t& exponent, bool& negative)
+        template <typename Probe, AtodMode Mode>
+        inline Errc atodRelaxed (Probe& probe, double& value, uint64_t& significand, int64_t& exponent, bool& negative)
         {
-            const char* beg = nullptr;
-            if constexpr (Rewind)
-            {
-                beg = probe.tell ();
-            }
+            constexpr bool special = (Mode & AtodMode::ParseNanAndInf) != AtodMode::Json;
 
             significand = 0;
             exponent = 0;
@@ -219,63 +314,70 @@ namespace dconv
             int64_t scale = 0;
             size_t digits = 0;
 
-            if (probe.getIf ('0'))
+            const bool zero = probe.getIf ('0');
+            if (zero)
             {
+                while (probe.getIf ('0'))
+                {
+                }
+            }
+
+            if (isDigit (probe.peek ()))
+            {
+                digits = probe.readDigits (u, 19);
                 if (DCONV_UNLIKELY (isDigit (probe.peek ())))
                 {
-                    return Errc::InvalidNumber;
-                }
-            }
-            else if (DCONV_LIKELY (isDigit (probe.peek ())))
-            {
-                if constexpr (Rewind)
-                {
-                    digits = probe.readDigits (u);
-                }
-                else
-                {
-                    digits = probe.readDigits (u, 19);
-                    if (DCONV_UNLIKELY (isDigit (probe.peek ())))
+                    significand = u;
+                    const int pending = probe.get () - '0';
+                    const int next = probe.peek ();
+                    if (!isDigit (next) && (next != '.') && (next != 'e') && (next != 'E') &&
+                        (u <= (std::numeric_limits<uint64_t>::max () - pending) / 10))
                     {
-                        significand = u;
-                        const int pending = probe.get () - '0';
-                        const int next = probe.peek ();
-                        if (!isDigit (next) && (next != '.') && (next != 'e') && (next != 'E') &&
-                            (u <= (std::numeric_limits<uint64_t>::max () - pending) / 10))
-                        {
-                            significand = (u * 10) + pending;
-                            return Errc::NotDouble;
-                        }
-                        if (!atodLong (probe, negative, u, exponent, false, value, pending))
-                        {
-                            return Errc::InvalidNumber;
-                        }
-                        return Errc::Success;
+                        significand = (u * 10) + pending;
+                        return Errc::NotDouble;
                     }
-                }
-                significand = u;
-            }
-            else if (probe.getIfNoCase ('i') && probe.getIfNoCase ('n') && probe.getIfNoCase ('f'))
-            {
-                if (probe.getIfNoCase ('i'))
-                {
-                    if (!(probe.getIfNoCase ('n') && probe.getIfNoCase ('i') && probe.getIfNoCase ('t') &&
-                          probe.getIfNoCase ('y')))
+                    if (!atodLong<Probe, true> (probe, negative, u, exponent, false, value, pending))
                     {
                         return Errc::InvalidNumber;
                     }
+                    return Errc::Success;
                 }
-                value = negative ? -std::numeric_limits<double>::infinity () : std::numeric_limits<double>::infinity ();
-                return Errc::Success;
+                significand = u;
             }
-            else if (probe.getIfNoCase ('n') && probe.getIfNoCase ('a') && probe.getIfNoCase ('n'))
+            else if (!zero && (probe.peek () != '.'))
             {
-                value =
-                    negative ? -std::numeric_limits<double>::quiet_NaN () : std::numeric_limits<double>::quiet_NaN ();
-                return Errc::Success;
-            }
-            else
-            {
+                if (special && probe.getIfNoCase ('i') && probe.getIfNoCase ('n') && probe.getIfNoCase ('f'))
+                {
+                    if constexpr (std::is_same_v<Probe, StringProbe>)
+                    {
+                        const char* mark = probe.tell ();
+                        if (!(probe.getIfNoCase ('i') && probe.getIfNoCase ('n') && probe.getIfNoCase ('i') &&
+                              probe.getIfNoCase ('t') && probe.getIfNoCase ('y')))
+                        {
+                            probe.seek (mark);
+                        }
+                    }
+                    else
+                    {
+                        if (probe.getIfNoCase ('i'))
+                        {
+                            if (!(probe.getIfNoCase ('n') && probe.getIfNoCase ('i') && probe.getIfNoCase ('t') &&
+                                  probe.getIfNoCase ('y')))
+                            {
+                                return Errc::InvalidNumber;
+                            }
+                        }
+                    }
+                    value =
+                        negative ? -std::numeric_limits<double>::infinity () : std::numeric_limits<double>::infinity ();
+                    return Errc::Success;
+                }
+                else if (special && probe.getIfNoCase ('n') && probe.getIfNoCase ('a') && probe.getIfNoCase ('n'))
+                {
+                    value = negative ? -std::numeric_limits<double>::quiet_NaN ()
+                                     : std::numeric_limits<double>::quiet_NaN ();
+                    return Errc::Success;
+                }
                 return Errc::InvalidNumber;
             }
 
@@ -283,7 +385,7 @@ namespace dconv
             if (probe.getIf ('.'))
             {
                 real = true;
-                if (DCONV_UNLIKELY (!isDigit (probe.peek ())))
+                if (DCONV_UNLIKELY (!isDigit (probe.peek ())) && !zero && (digits == 0))
                 {
                     return Errc::InvalidNumber;
                 }
@@ -296,42 +398,44 @@ namespace dconv
                     }
                 }
 
-                size_t count = probe.readDigits (u, Rewind ? std::numeric_limits<size_t>::max () : 19 - digits);
+                size_t count = probe.readDigits (u, 19 - digits);
                 significand = u;
                 digits += count;
                 scale -= static_cast<int64_t> (count);
                 exponent = scale;
 
-                if constexpr (!Rewind)
+                if (DCONV_UNLIKELY (isDigit (probe.peek ())))
                 {
-                    if (DCONV_UNLIKELY (isDigit (probe.peek ())))
+                    if (!atodLong<Probe, true> (probe, negative, u, exponent, true, value))
                     {
-                        if (!atodLong (probe, negative, u, exponent, true, value))
-                        {
-                            return Errc::InvalidNumber;
-                        }
-                        return Errc::Success;
+                        return Errc::InvalidNumber;
                     }
+                    return Errc::Success;
                 }
             }
 
-            if constexpr (Rewind)
-            {
-                if (DCONV_UNLIKELY (digits > 19))
-                {
-                    probe.seek (beg);
-                    return atod<Probe, false> (probe, value, significand, exponent, negative);
-                }
-            }
-
-            real |= (probe.peek () == 'e') || (probe.peek () == 'E');
+            bool scientific = (probe.peek () == 'e') || (probe.peek () == 'E');
             int64_t power = 0;
 
-            if (!readExponent (probe, power))
+            if constexpr (std::is_same_v<Probe, StringProbe>)
             {
-                return Errc::InvalidNumber;
+                const char* mark = probe.tell ();
+                if (DCONV_UNLIKELY (!readExponent (probe, power)))
+                {
+                    probe.seek (mark);
+                    power = 0;
+                    scientific = false;
+                }
+            }
+            else
+            {
+                if (!readExponent (probe, power))
+                {
+                    return Errc::InvalidNumber;
+                }
             }
 
+            real |= scientific;
             if (!real)
             {
                 return Errc::NotDouble;
@@ -344,18 +448,245 @@ namespace dconv
         }
 
         /**
+         * @brief parse again a number the fast path does not handle.
+         * @param probe probe to read from, positioned on the start of the number.
+         * @param value converted value.
+         * @param significand integer value when the error is NotDouble, first significant digits read otherwise.
+         * @param exponent decimal exponent read.
+         * @param negative sign read.
+         * @return Errc::Success on success, the error otherwise.
+         */
+        template <typename Probe, AtodMode Mode>
+        DCONV_COLD Errc atodRewind (Probe& probe, double& value, uint64_t& significand, int64_t& exponent,
+                                    bool& negative);
+
+        /**
+         * @brief string to double conversion that stops on integers.
+         * @param probe probe to read from.
+         * @param value converted value.
+         * @param significand integer value when the error is NotDouble, first significant digits read otherwise.
+         * @param exponent decimal exponent read.
+         * @param negative sign read.
+         * @return Errc::Success on success, the error otherwise.
+         */
+        template <typename Probe, AtodMode Mode = AtodMode::General, bool Rewind = std::is_same_v<Probe, StringProbe>>
+        inline Errc atod (Probe& probe, double& value, uint64_t& significand, int64_t& exponent, bool& negative)
+        {
+            constexpr bool relaxed = (Mode & AtodMode::ParseRelaxedNumber) != AtodMode::Json;
+
+            if constexpr (relaxed && !Rewind)
+            {
+                return atodRelaxed<Probe, Mode> (probe, value, significand, exponent, negative);
+            }
+
+            const char* beg = nullptr;
+            if constexpr (Rewind)
+            {
+                beg = probe.tell ();
+            }
+
+            do
+            {
+                significand = 0;
+                exponent = 0;
+                negative = probe.getIf ('-');
+                uint64_t u = 0;
+                int64_t scale = 0;
+                size_t digits = 0;
+
+                if (probe.getIf ('0'))
+                {
+                    if (DCONV_UNLIKELY (isDigit (probe.peek ())))
+                    {
+                        if constexpr (relaxed && Rewind)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            return Errc::InvalidNumber;
+                        }
+                    }
+                }
+                else if (DCONV_LIKELY (isDigit (probe.peek ())))
+                {
+                    if constexpr (Rewind)
+                    {
+                        digits = probe.readDigits (u);
+                    }
+                    else
+                    {
+                        digits = probe.readDigits (u, 19);
+                        if (DCONV_UNLIKELY (isDigit (probe.peek ())))
+                        {
+                            significand = u;
+                            const int pending = probe.get () - '0';
+                            const int next = probe.peek ();
+                            if (!isDigit (next) && (next != '.') && (next != 'e') && (next != 'E') &&
+                                (u <= (std::numeric_limits<uint64_t>::max () - pending) / 10))
+                            {
+                                significand = (u * 10) + pending;
+                                return Errc::NotDouble;
+                            }
+                            if (!atodLong<Probe, relaxed> (probe, negative, u, exponent, false, value, pending))
+                            {
+                                return Errc::InvalidNumber;
+                            }
+                            return Errc::Success;
+                        }
+                    }
+                    significand = u;
+                }
+                else if (((Mode & AtodMode::ParseNanAndInf) != AtodMode::Json) && probe.getIfNoCase ('i') &&
+                         probe.getIfNoCase ('n') && probe.getIfNoCase ('f'))
+                {
+                    if (probe.getIfNoCase ('i'))
+                    {
+                        if (!(probe.getIfNoCase ('n') && probe.getIfNoCase ('i') && probe.getIfNoCase ('t') &&
+                              probe.getIfNoCase ('y')))
+                        {
+                            if constexpr (relaxed && Rewind)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                return Errc::InvalidNumber;
+                            }
+                        }
+                    }
+                    value =
+                        negative ? -std::numeric_limits<double>::infinity () : std::numeric_limits<double>::infinity ();
+                    return Errc::Success;
+                }
+                else if (((Mode & AtodMode::ParseNanAndInf) != AtodMode::Json) && probe.getIfNoCase ('n') &&
+                         probe.getIfNoCase ('a') && probe.getIfNoCase ('n'))
+                {
+                    value = negative ? -std::numeric_limits<double>::quiet_NaN ()
+                                     : std::numeric_limits<double>::quiet_NaN ();
+                    return Errc::Success;
+                }
+                else
+                {
+                    if constexpr (relaxed && Rewind)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        return Errc::InvalidNumber;
+                    }
+                }
+
+                bool real = false;
+                if (probe.getIf ('.'))
+                {
+                    real = true;
+                    if (DCONV_UNLIKELY (!isDigit (probe.peek ())))
+                    {
+                        if constexpr (relaxed && Rewind)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            return Errc::InvalidNumber;
+                        }
+                    }
+
+                    if (digits == 0)
+                    {
+                        while (probe.getIf ('0'))
+                        {
+                            --scale;
+                        }
+                    }
+
+                    size_t count = probe.readDigits (u, Rewind ? std::numeric_limits<size_t>::max () : 19 - digits);
+                    significand = u;
+                    digits += count;
+                    scale -= static_cast<int64_t> (count);
+                    exponent = scale;
+
+                    if constexpr (!Rewind)
+                    {
+                        if (DCONV_UNLIKELY (isDigit (probe.peek ())))
+                        {
+                            if (!atodLong<Probe, relaxed> (probe, negative, u, exponent, true, value))
+                            {
+                                return Errc::InvalidNumber;
+                            }
+                            return Errc::Success;
+                        }
+                    }
+                }
+
+                if constexpr (Rewind)
+                {
+                    if (DCONV_UNLIKELY (digits > 19))
+                    {
+                        break;
+                    }
+                }
+
+                real |= (probe.peek () == 'e') || (probe.peek () == 'E');
+                int64_t power = 0;
+
+                if (!readExponent (probe, power))
+                {
+                    if constexpr (relaxed && Rewind)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        return Errc::InvalidNumber;
+                    }
+                }
+
+                if (!real)
+                {
+                    return Errc::NotDouble;
+                }
+
+                exponent = scale + power;
+                value = eisellemire::compute (u, exponent);
+                value = negative ? -value : value;
+                return Errc::Success;
+            }
+            while (false);
+
+            if constexpr (Rewind)
+            {
+                probe.seek (beg);
+                return atodRewind<Probe, Mode> (probe, value, significand, exponent, negative);
+            }
+            else
+            {
+                return Errc::InvalidNumber;  // LCOV_EXCL_LINE
+            }
+        }
+
+        template <typename Probe, AtodMode Mode>
+        DCONV_COLD Errc atodRewind (Probe& probe, double& value, uint64_t& significand, int64_t& exponent,
+                                    bool& negative)
+        {
+            return atod<Probe, Mode, false> (probe, value, significand, exponent, negative);
+        }
+
+        /**
          * @brief string to double conversion.
          * @param probe probe to read from.
          * @param value converted value.
          * @return true on success, false otherwise.
          */
-        template <typename Probe>
+        template <typename Probe, AtodMode Mode = AtodMode::General>
         inline bool atod (Probe& probe, double& value)
         {
             uint64_t significand;
             int64_t exponent;
             bool negative;
-            const Errc err = atod (probe, value, significand, exponent, negative);
+            const Errc err = atod<Probe, Mode> (probe, value, significand, exponent, negative);
             if (err == Errc::NotDouble)
             {
                 value = negative ? -static_cast<double> (significand) : static_cast<double> (significand);
@@ -375,10 +706,11 @@ namespace dconv
      * @param ec error code set on failure.
      * @return 0 on success, -1 on failure.
      */
+    template <AtodMode Mode = AtodMode::General>
     inline int atod (StreamProbe& probe, double& value, uint64_t& significand, int64_t& exponent, bool& negative,
                      std::error_code& ec)
     {
-        const Errc err = details::atod (probe, value, significand, exponent, negative);
+        const Errc err = details::atod<StreamProbe, Mode> (probe, value, significand, exponent, negative);
         if (err != Errc::Success)
         {
             ec = make_error_code (err);
@@ -393,9 +725,10 @@ namespace dconv
      * @param value converted value.
      * @return true on success, false otherwise.
      */
+    template <AtodMode Mode = AtodMode::General>
     inline bool atod (StreamProbe& probe, double& value)
     {
-        return details::atod (probe, value);
+        return details::atod<StreamProbe, Mode> (probe, value);
     }
 
     /**
@@ -404,10 +737,11 @@ namespace dconv
      * @param value converted value.
      * @return true on success, false otherwise.
      */
+    template <AtodMode Mode = AtodMode::General>
     inline bool atod (std::istream& in, double& value)
     {
         StreamProbe probe (in);
-        return details::atod (probe, value);
+        return details::atod<StreamProbe, Mode> (probe, value);
     }
 
     /**
@@ -420,10 +754,11 @@ namespace dconv
      * @param ec error code set on failure.
      * @return 0 on success, -1 on failure.
      */
+    template <AtodMode Mode = AtodMode::General>
     inline int atod (StringProbe& probe, double& value, uint64_t& significand, int64_t& exponent, bool& negative,
                      std::error_code& ec)
     {
-        const Errc err = details::atod (probe, value, significand, exponent, negative);
+        const Errc err = details::atod<StringProbe, Mode> (probe, value, significand, exponent, negative);
         if (err != Errc::Success)
         {
             ec = make_error_code (err);
@@ -438,9 +773,10 @@ namespace dconv
      * @param value converted value.
      * @return true on success, false otherwise.
      */
+    template <AtodMode Mode = AtodMode::General>
     inline bool atod (StringProbe& probe, double& value)
     {
-        return details::atod (probe, value);
+        return details::atod<StringProbe, Mode> (probe, value);
     }
 
     /**
@@ -449,10 +785,11 @@ namespace dconv
      * @param value converted value.
      * @return end position on success, nullptr on failure.
      */
+    template <AtodMode Mode = AtodMode::General>
     inline const char* atod (const char* str, double& value)
     {
         StringProbe probe (str);
-        return details::atod (probe, value) ? probe.tell () : nullptr;
+        return details::atod<StringProbe, Mode> (probe, value) ? probe.tell () : nullptr;
     }
 
     /**
@@ -462,10 +799,11 @@ namespace dconv
      * @param value converted value.
      * @return end position on success, nullptr on failure.
      */
+    template <AtodMode Mode = AtodMode::General>
     inline const char* atod (const char* str, size_t length, double& value)
     {
         StringProbe probe (str, length);
-        return details::atod (probe, value) ? probe.tell () : nullptr;
+        return details::atod<StringProbe, Mode> (probe, value) ? probe.tell () : nullptr;
     }
 
     /**
@@ -475,10 +813,11 @@ namespace dconv
      * @param value converted value.
      * @return end position on success, nullptr on failure.
      */
+    template <AtodMode Mode = AtodMode::General>
     inline const char* atod (const char* first, const char* last, double& value)
     {
         StringProbe probe (first, last);
-        return details::atod (probe, value) ? probe.tell () : nullptr;
+        return details::atod<StringProbe, Mode> (probe, value) ? probe.tell () : nullptr;
     }
 
     /**
@@ -487,10 +826,11 @@ namespace dconv
      * @param value converted value.
      * @return end position on success, nullptr on failure.
      */
+    template <AtodMode Mode = AtodMode::General>
     inline const char* atod (std::string_view str, double& value)
     {
         StringProbe probe (str.data (), str.size ());
-        return details::atod (probe, value) ? probe.tell () : nullptr;
+        return details::atod<StringProbe, Mode> (probe, value) ? probe.tell () : nullptr;
     }
 
     /**
@@ -499,6 +839,7 @@ namespace dconv
      * @param value converted value.
      * @return end position on success, nullptr on failure.
      */
+    template <AtodMode Mode = AtodMode::General>
     const char* atod (std::string&& str, double& value) = delete;
 }
 

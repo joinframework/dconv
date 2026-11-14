@@ -36,6 +36,7 @@
 
 #define DCONV_LIKELY(x) __builtin_expect ((x), 1)
 #define DCONV_UNLIKELY(x) __builtin_expect ((x), 0)
+#define DCONV_COLD __attribute__ ((cold, noinline))
 
 namespace dconv
 {

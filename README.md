@@ -134,6 +134,28 @@ if (dconv::atod (probe, value, significand, exponent, negative, ec) == -1 && ec 
 It returns `0` and the converted value for a real number, or `-1` with `Errc::NotDouble` for an integer without fraction nor exponent whose magnitude fits in 64 bits, or `-1` with `Errc::InvalidNumber` when parsing fails.
 `significand`, `exponent` and `negative` hold what was read until the end or the error.
 
+By default `atod` reads the general format of `std::from_chars`: an optional `-`, digits with an optional point (leading zeros, `1.` and `.5` are accepted), an optional exponent, and `inf`, `infinity` or `nan` in any case.
+Leading whitespaces, a leading `+` and hexadecimal numbers are rejected. A value too large for a double is read as infinity.
+
+A conversion mode, given as a template argument, restricts what is accepted:
+
+```cpp
+#include <dconv/atod.hpp>
+
+double value;
+const char* end = dconv::atod<dconv::AtodMode::Json> ("-2.22507e-308", value);
+```
+
+| Mode | Accepted |
+| :--- | :--- |
+| `AtodMode::General` | general format (default). |
+| `AtodMode::Json` | JSON numbers only (RFC 8259): no leading zeros, digits on both sides of the point, no `inf` nor `nan`. |
+| `AtodMode::ParseNanAndInf` | JSON numbers, `inf`, `infinity` and `nan`. |
+| `AtodMode::ParseRelaxedNumber` | JSON numbers, leading zeros and missing digits around the point. |
+
+Modes are bit flags: `AtodMode::General` is `AtodMode::ParseNanAndInf | AtodMode::ParseRelaxedNumber`.
+In general format, an exponent mark not followed by digits (`1e+`) or a truncated `infinity` (`infinit`) is left unread when parsing a buffer; a stream cannot be rewound, so the conversion fails there.
+
 `dtoa` needs a buffer of at least 25 bytes (26 bytes for `grisu::dtoa`) and returns the end of the written characters.
 `atod` returns the end of the parsed characters, or `nullptr` on failure.
 The probe and stream overloads return `false` on failure and stop right after the number on success.
