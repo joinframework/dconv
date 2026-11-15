@@ -448,19 +448,6 @@ namespace dconv
         }
 
         /**
-         * @brief parse again a number the fast path does not handle.
-         * @param probe probe to read from, positioned on the start of the number.
-         * @param value converted value.
-         * @param significand integer value when the error is NotDouble, first significant digits read otherwise.
-         * @param exponent decimal exponent read.
-         * @param negative sign read.
-         * @return Errc::Success on success, the error otherwise.
-         */
-        template <typename Probe, AtodMode Mode>
-        DCONV_COLD Errc atodRewind (Probe& probe, double& value, uint64_t& significand, int64_t& exponent,
-                                    bool& negative);
-
-        /**
          * @brief string to double conversion that stops on integers.
          * @param probe probe to read from.
          * @param value converted value.
@@ -537,8 +524,7 @@ namespace dconv
                     }
                     significand = u;
                 }
-                else if (((Mode & AtodMode::ParseNanAndInf) != AtodMode::Json) && probe.getIfNoCase ('i') &&
-                         probe.getIfNoCase ('n') && probe.getIfNoCase ('f'))
+                else if (probe.getIfNoCase ('i') && probe.getIfNoCase ('n') && probe.getIfNoCase ('f'))
                 {
                     if (probe.getIfNoCase ('i'))
                     {
@@ -557,13 +543,20 @@ namespace dconv
                     }
                     value =
                         negative ? -std::numeric_limits<double>::infinity () : std::numeric_limits<double>::infinity ();
+                    if constexpr ((Mode & AtodMode::ParseNanAndInf) == AtodMode::Json)
+                    {
+                        return Errc::InvalidNumber;
+                    }
                     return Errc::Success;
                 }
-                else if (((Mode & AtodMode::ParseNanAndInf) != AtodMode::Json) && probe.getIfNoCase ('n') &&
-                         probe.getIfNoCase ('a') && probe.getIfNoCase ('n'))
+                else if (probe.getIfNoCase ('n') && probe.getIfNoCase ('a') && probe.getIfNoCase ('n'))
                 {
                     value = negative ? -std::numeric_limits<double>::quiet_NaN ()
                                      : std::numeric_limits<double>::quiet_NaN ();
+                    if constexpr ((Mode & AtodMode::ParseNanAndInf) == AtodMode::Json)
+                    {
+                        return Errc::InvalidNumber;
+                    }
                     return Errc::Success;
                 }
                 else
@@ -659,19 +652,12 @@ namespace dconv
             if constexpr (Rewind)
             {
                 probe.seek (beg);
-                return atodRewind<Probe, Mode> (probe, value, significand, exponent, negative);
+                return atod<Probe, Mode, false> (probe, value, significand, exponent, negative);
             }
             else
             {
                 return Errc::InvalidNumber;  // LCOV_EXCL_LINE
             }
-        }
-
-        template <typename Probe, AtodMode Mode>
-        DCONV_COLD Errc atodRewind (Probe& probe, double& value, uint64_t& significand, int64_t& exponent,
-                                    bool& negative)
-        {
-            return atod<Probe, Mode, false> (probe, value, significand, exponent, negative);
         }
 
         /**
